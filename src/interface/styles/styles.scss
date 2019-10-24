@@ -1,0 +1,743 @@
+
+
+
+
+
+
+
+
+$font: (
+	"main": "Varela",
+	"title": "Varela Round",
+	"code": "Courier New",
+);
+
+$fontsize: (
+	"tiny": 0.65rem,
+	"small": 0.7rem,
+	"normal": 0.85rem,
+	"large": 1.5rem,
+	"huge": 2rem,
+);
+
+$colors: (
+
+	// Greens
+	"major": #00AA22,
+	"major-pale": #89D494,
+	"major-palest": #F3FBF5,
+
+	// Reds
+	"minor": #AA2200,
+	"minor-pale": #D49489,
+	"minor-palest": #FBF5F3,
+
+	// Greys
+	"neutral-palest": #F5F5F5,
+	"neutral-pale": #E9E9E9,
+	"neutral": #DDDDDD,
+	"neutral-dark": #B6B6B6,
+	"neutral-darkest": #888888,
+	"pale-black": #555555,
+
+	"white": #FEFEFE,
+	"black": #010101,
+
+	"good": #00AA22,		// Green
+	"bad": #AA2200,			// Red
+
+	"note": #AA0088,		// Purple
+	"info": #0088AA,		// Blue
+	"other": #AA8800,		// Tan
+	"warn": #DD8800,		// Amber
+
+);
+
+
+$scale: (
+
+	"border": 0.1rem,
+	"padding": 0.5rem,
+	"spacer": 1rem,
+
+	"banner-height": 4rem,
+
+	"header-height": 3rem,
+
+	"auth-width": 30%,
+	"auth-height": 7.5rem,
+
+	"section-item": 1.7rem,
+	"section-key": 7.5rem,
+
+	"button-width": 3.5rem,
+	"button-height": 1.3rem,
+
+);
+
+
+
+body {
+	margin: 0;
+	background: map-get($colors, "neutral-pale");
+}
+
+p {
+	margin: 0;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+
+@mixin fixed-width($w) {
+	min-width: $w;
+	max-width: $w;
+}
+
+@mixin fixed-height($h) {
+	min-height: $h;
+	max-height: $h;
+}
+
+@mixin fixed-size($w, $h) {
+	@include fixed-width($w);
+	@include fixed-height($h);
+}
+
+
+@mixin container {
+	position: relative;
+	display: flex;
+	flex-grow: 1;
+	align-items: center;
+	align-content: center;
+	justify-content: stretch;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+@mixin column {
+	@include container;
+	@include fixed-height(100%);
+	flex-direction: column;
+}
+
+@mixin row {
+	@include container;
+	@include fixed-width(100%);
+	flex-direction: row;
+}
+
+@mixin shadow {
+	box-shadow:
+		0 0.5rem 1rem 0 rgba(0, 0, 0, 0.2),
+		0 1rem 2rem 0 rgba(0, 0, 0, 0.1);
+}
+
+@mixin card {
+	@include column;
+	@include shadow;
+	background: map-get($colors, "white");
+	padding: map-get($scale, "padding");
+	border-radius: 0 0 2.5rem 0;
+}
+
+
+
+@mixin header($height: map-get($scale, "header-height")) {
+	@include row;
+	align-self: flex-start;
+	justify-content: space-between;
+	@include fixed-height($height);
+	background: map-get($colors, "major");
+	margin-bottom: map-get($scale, "padding");
+	.title { padding: 0 (2 * map-get($scale, "padding")); }
+}
+
+@mixin text($size: map-get($fontsize, "normal")) {
+	display: block;
+	font-family: map-get($font, "main");
+	font-size: $size;
+	color: map-get($colors, "black");
+
+	&.boolean { font-style: oblique; }
+	&.true { color: map-get($colors, "good"); }
+	&.false { color: map-get($colors, "bad"); }
+
+}
+
+@mixin title($size: map-get($fontsize, "large")) {
+	font-family: map-get($font, "title");
+	font-size: $size;
+	color: map-get($colors, "white");
+	cursor: default;
+}
+
+@mixin code($size: map-get($fontsize, "small")) {
+	font-family: map-get($font, "code");
+	color: map-get($colors, "neutral-darkest");
+	font-weight: 600;
+	font-size: $size;
+}
+
+
+@mixin input {
+	@include container;
+	@include text;
+	text-align: center;
+	border: 0;
+	outline: none;
+	overflow: hidden;
+}
+
+
+
+.spacer {
+	@include column;
+	justify-content: center;
+	width: 100%;
+}
+
+.title {
+	@include title;
+}
+
+.text {
+	@include text;
+}
+
+.code {
+	@include code;
+}
+
+
+
+#page{
+
+	@include column;
+	@include fixed-size(100vw, 100vh);
+	overflow: hidden;
+	background: map-get($colors, "neutral-pale");
+
+	.banner {
+
+		$height: map-get($scale, "banner-height");
+
+		@include header($height);
+		@include shadow;
+		@include fixed-width(100%);
+		margin-bottom: 0;
+
+		.title {
+			@include title;
+			font-size: map-get($fontsize, "huge");
+		}
+
+		.logo {
+
+			$size: $height - (2 * map-get($scale, "padding"));
+
+			@include container;
+			@include fixed-size($size, $size);
+			margin-left: map-get($scale, "padding");
+
+			img {
+				width: 100%;
+				height: 100%;
+			}
+
+		}
+
+	}
+
+
+	.main {
+
+		@include row;
+
+		.column {
+
+			$outer: 3%;
+
+			@include container;
+			align-self: stretch;
+			@include fixed-width(50%);
+			padding: $outer 0;
+
+			.box {
+
+				@include card;
+				margin: 0 $outer;
+
+				&.left {
+					margin-left: $outer * 1.5;
+				}
+
+				&.right {
+					margin-right: $outer * 1.5;
+					border-radius: 0 0 0 2.5rem;
+				}
+
+				.header {
+
+					@include header;
+					margin-bottom: map-get($scale, "spacer");
+
+					.title {
+						@include title;
+					}
+
+					.back {
+						@include title(map-get($fontsize, "normal"));
+						margin-right: 2 * map-get($scale, "padding");
+					}
+
+				}
+
+				.content {
+					@include column;
+					@include fixed-size(100%, unset);
+					overflow-y: scroll;
+				}
+
+			}
+
+		}
+
+	}
+
+
+}
+
+
+
+
+
+
+#auth {
+
+	$width: map-get($scale, "auth-width");
+	$height: map-get($scale, "auth-height");
+
+	@include card;
+	@include fixed-size($width, $height);
+	margin-bottom: $height;
+
+	.header {
+		@include header;
+		.title {
+			@include title;
+		}
+	}
+
+	.body {
+
+		@extend .spacer;
+		justify-content: center;
+
+		.input {
+
+			@include input;
+			width: 100%;
+			padding: 0 map-get($scale, "padding");
+			margin-bottom: map-get($scale, "padding");
+			font-size: map-get($fontsize, "large");
+
+			.inactive {
+				color: map-get($colors, "neutral-dark");
+			}
+
+		}
+
+		.error {
+
+			@include row;
+			position: absolute;
+			bottom: 0;
+			pointer-events: none;
+
+			.message {
+				@include text(map-get($fontsize, "tiny"));
+				width: 100%;
+				text-align: center;
+				color: map-get($colors, "bad");
+				margin-bottom: 0;
+			}
+
+		}
+
+	}
+
+}
+
+
+
+
+
+#controls {
+
+	@include column;
+	width: 100%;
+	height: 100%;
+
+}
+
+
+#logs {
+
+	@include column;
+
+	.header {
+		background: map-get($colors, "neutral-darkest") !important;
+	}
+
+	.selector {
+		@include row;
+		@include fixed-height(map-get($scale, "button-height"));
+		margin: 0 map-get($scale, "padding");
+		margin-top: 0;
+		padding: 0 (2 * map-get($scale, "padding"));
+		justify-content: flex-start;
+		background: transparent;
+		overflow-x: scroll;
+
+		.buttons {
+			@include row;
+			@include fixed-width(unset);
+			.button {
+				margin-right: (1.5 * map-get($scale, "padding"));
+			}
+		}
+	}
+
+	.content {
+
+		align-items: unset !important;
+
+		.output {
+
+			@include column;
+			overflow-x: scroll;
+			margin: map-get($scale, "padding");
+			background: map-get($colors, "neutral-palest");
+			border: 1px solid map-get($colors, "neutral-darkest");
+			border-radius: 0 0 0 1.8rem;
+
+			.line {
+
+				$spacing: 0.3 * map-get($scale, "padding");
+
+				@include code;
+				width: 100%;
+				margin: $spacing;
+
+				.date {
+					cursor: default;
+					white-space: pre;
+					padding: $spacing (2 * $spacing);
+					background: map-get($colors, "neutral-darkest");
+					color: map-get($colors, "neutral-palest");
+				}
+
+				.message {
+					white-space: pre;
+					padding: 0.3 * map-get($scale, "padding");
+					padding-left: 0.5 * map-get($scale, "padding");
+					color: map-get($colors, "pale-black");
+
+					&.link {
+
+						cursor: pointer;
+						text-decoration: underline;
+
+						&:hover {
+							text-decoration: none;
+						}
+
+						&.data {
+							color: map-get($colors, "major");
+						}
+
+						&.error {
+							color: map-get($colors, "bad");
+						}
+
+					}
+				}
+
+			}
+
+			.button {
+				position: absolute;
+				right: 0;
+				top: 0;
+			}
+
+		}
+
+	}
+
+}
+
+
+
+.section {
+
+	$width: calc(100% - #{map-get($scale, "padding") * 3});
+
+	@include column;
+	@include fixed-size($width, unset);
+	align-items: flex-start;
+	justify-content: space-between;
+	flex-grow: unset;
+	align-self: flex-start;
+	margin:
+		map-get($scale, "spacer")
+		1.5 * map-get($scale, "padding");
+	padding-left: map-get($scale, "padding");
+	border-left: map-get($scale, "border") solid transparent;
+
+
+	&.subsection {
+		border-color: map-get($colors, "neutral-darkest");
+	}
+
+
+	.heading {
+
+		@include row;
+		@include fixed-size(94%, map-get($scale, "section-item"));
+		margin: map-get($scale, "padding");
+		margin-top: 0;
+		margin-bottom: map-get($scale, "padding");
+		padding-left: map-get($scale, "padding");
+		padding-right: map-get($scale, "padding");
+		border-bottom:
+			map-get($scale, "border")
+			solid
+			map-get($colors, "neutral-darkest");
+
+		.title {
+			@include title;
+			color: map-get($colors, "neutral-darkest");
+		}
+
+		.controls {
+	
+			@include row;
+			@include fixed-width(unset);
+			justify-content: flex-end;
+
+			.button {
+				margin-left: map-get($scale, "padding");
+			}
+
+		}
+
+	}
+
+
+	.item {
+
+		@include row;
+		@include fixed-size(92%, map-get($scale, "section-item"));
+		margin-bottom: 0.5 * map-get($scale, "padding");
+
+		&.selectable {
+			cursor: pointer;
+			&:hover {
+				background: map-get($colors, "neutral-pale");
+			}
+		}
+
+		&.subtitle {
+			@include title(map-get($fontsize, "normal"));
+			@include fixed-size(50%, map-get($scale, "section-item"));
+			align-self: flex-start;
+			align-items: flex-end;
+			color: map-get($colors, "neutral-darkest");
+			border-bottom:
+				map-get($scale, "border")
+				solid
+				map-get($colors, "neutral-darkest");
+		}
+
+		.key {
+			@include container;
+			@include fixed-width(map-get($scale, "section-key"));
+			@include text;
+			cursor: default;
+			color: map-get($colors, "neutral-darkest");
+			text-align: right;
+			text-transform: uppercase;
+			padding: 0 (2 * map-get($scale, "padding"));
+		}
+
+		.bullet {
+
+			@include container;
+			@include fixed-size(
+				map-get($scale, "section-item"),
+				map-get($scale, "section-item")
+			);
+			@include title;
+			color: map-get($colors, "neutral-darkest");
+			text-align: center;
+
+			&:after { content: "\2023"; }
+
+		}
+
+		.value {
+			@include container;
+			@include text;
+		}
+
+		.inputkey {
+			@include container;
+			@include fixed-width(30%);
+			@include text;
+			cursor: default;
+			color: map-get($colors, "white");
+			background: map-get($colors, "neutral-darkest");
+			text-align: right;
+			padding: 0.5 * map-get($scale, "padding");
+			padding-right: map-get($scale, "padding");
+			margin: 0 (2 * map-get($scale, "padding"));
+		}
+
+		.input {
+
+			@include input;
+			@include fixed-width(55%);
+			@include text;
+			align-self: flex-end;
+			margin-bottom: 1px;
+			text-align: left;
+			border-bottom: 1px solid map-get($colors, "neutral-darkest");
+
+			&.placeholder {
+				color: map-get($colors, "neutral-dark");
+				font-style: oblique;
+			}
+
+			&.error {
+				border-color: map-get($colors, "bad");
+			}
+
+		}
+
+		.option{
+			@include container;
+			@include text;
+			flex-grow: unset;
+			padding: 0 map-get($scale, "padding");
+		}
+
+		.description {
+			@include container;
+			@include text(map-get($fontsize, "small"));
+			color: map-get($colors, "neutral-dark");
+			font-style: oblique;
+			padding-right: map-get($scale, "padding");
+			padding-left: 2 * map-get($scale, "padding");
+			margin-top: 0.5 * (map-get($fontsize, "normal") - map-get($fontsize, "small"))
+		}
+
+		.button {
+			margin-left: 2%;
+		}
+
+	}
+
+}
+
+
+.button {
+
+	$width: map-get($scale, "button-width");
+	$height: map-get($scale, "button-height");
+
+	@include container;
+	@include fixed-size(unset, $height);
+	min-width: $width;
+	flex-grow: unset;
+	cursor: pointer;
+	background: map-get($colors, "major");
+	color: map-get($colors, "white");
+	border:
+		map-get($scale, "border")
+		solid
+		map-get($colors, "major");
+	border-radius: $height;
+	transition: 0.3s;
+
+	&.round {
+		@include fixed-width($height);
+	}
+
+	&.control {
+		margin-bottom: 1%;
+		&:hover {
+			background: transparent;
+			color: map-get($colors, "major");
+		}
+	}
+
+	&.danger {
+		background: map-get($colors, "bad");
+		border-color: map-get($colors, "bad");
+		&:hover {
+			background: transparent;
+			color: map-get($colors, "bad");
+		}
+	}
+
+	&.toggle {
+		
+		&.active {
+			cursor: default;
+		}
+
+		&.inactive {
+			background: map-get($colors, "neutral-darkest");
+			border-color: map-get($colors, "neutral-darkest");
+			&:hover {
+				background: map-get($colors, "major");
+				border-color: map-get($colors, "major");
+				color: map-get($colors, "white");
+			}
+		}
+
+	}
+
+	p {
+
+		@include title(map-get($fontsize, "small"));
+		width: 100%;
+		text-align: center;
+		color: inherit;
+		cursor: inherit;
+		padding: 0 map-get($fontsize, "small");
+
+	}
+
+}
+
+
+
+
+.offline {
+	@include container;
+	@include title(map-get($fontsize, "huge"));
+	color: map-get($colors, "bad");
+	padding-bottom: 12%;
+}
+
+
+
+

@@ -1,0 +1,29 @@
+{
+
+	"store": {
+		"apiVersion": "2006-03-01",
+		"region": "eu-west-1",
+		"sizeLimit": "5mb",
+		"buckets": {
+			"files": "podium-config",
+			"media": "media.podium-network.com",
+			"logs": ""
+		},
+		"paths": {
+			"templates": "templates/",
+			"nations": "nations/"
+		}
+	},
+
+	"admin": {
+		"port": 3210,
+		"path": "/admin",
+		"refresh": 1000
+	},
+
+	"logger": {
+		"to": "file",
+		"path": "./logs"
+	}
+
+}

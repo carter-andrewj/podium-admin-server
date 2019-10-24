@@ -1,0 +1,10 @@
+/node_modules
+/build
+/templates
+/logs
+/cache
+/db
+
+.env
+
+*.log
