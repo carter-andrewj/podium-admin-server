@@ -1,16 +1,28 @@
 import s3 from 'aws-sdk/clients/s3';
 
+import { Map } from 'immutable';
+
+import Bucket from './bucket';
+
+import Logger from '../utils/logger';
+
+
+
+
 
 
 export default class Store {
 
 	constructor(podium) {
 
-		// Get config
+		// Refs
 		this.podium = podium
 
 		// State
-		this.store = null
+		this.store = this
+		this.config = undefined
+		this.buckets = Map()
+		this.logger = undefined
 
 		// Methods
 		this.log = this.log.bind(this)
@@ -19,18 +31,9 @@ export default class Store {
 		this.connect = this.connect.bind(this)
 		this.disconnect = this.disconnect.bind(this)
 
-		this.list = this.list.bind(this)
-		this.listTemplates = this.listTemplates.bind(this)
-		this.listNations = this.listNations.bind(this)
-
-		this.read = this.read.bind(this)
-		this.readJSON = this.readJSON.bind(this)
-		this.readTemplate = this.readTemplate.bind(this)
-		this.readNation = this.readNation.bind(this)
-
-		this.write = this.write.bind(this)
-		this.writeNation = this.writeNation.bind(this)
-		this.writeMedia = this.writeMedia.bind(this)
+		this.addBucket = this.addBucket.bind(this)
+		this.removeBucket = this.removeBucket.bind(this)
+		this.in = this.in.bind(this)
 
 	}
 
@@ -39,196 +42,107 @@ export default class Store {
 // LOGGING
 
 	log(line, level) {
-		this.podium.log(`STORE: ${line}`, level)
+		this.logger.out(line, level)
 	}
 
 	error(error, context) {
-		this.podium.error(error, `STORE: ${context}`)
+		this.logger.error(error, context)
 	}
+
 
 
 
 // CONNECT
 
-	connect(config) {
-		return new Promise((resolve, reject) => {
+	async connect(config) {
 
-			// Store config
-			this.config = config
+		// Store config
+		this.config = config
 
-			// Connect to S3
-			this.store = new s3({
-				apiVersion: this.config.apiVersion,
-				region: this.config.region,
-				accessKeyId: process.env.AWS_ACCESS_KEY,
-				secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-			})
-
-			// Resolve
-			resolve(this)
-
+		// Connect to S3
+		this.root = new s3({
+			apiVersion: this.config.apiVersion,
+			region: this.config.region,
+			accessKeyId: process.env.AWS_ACCESS_KEY,
+			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
 		})
+
+		// Construct file structure
+		Map(this.config.buckets).map(this.addBucket)
+
+		// Logging
+		const { to, path } = this.podium.config.logger
+		this.logger = new Logger("Store").start(to, path)
+
+		// Reset long and resolve
+		await this.logger.clear().catch(this.error)
+
+		// Start log
+		this.log(`Connected Store`)
+
+		// Return store
+		return this
+
 	}
 
 
-	disconnect() {
-		return new Promise((resolve, reject) => {
+	async disconnect() {
 
-			// Clear variables
-			this.config = undefined
-			this.store = undefined
+		// Clear variables
+		this.config = undefined
+		this.root = undefined
+		this.buckets = Map()
 
-			// Resolve
-			resolve(this)
+		// end log
+		this.log(`Disconnected ${this.name}Store`)
 
-		})
-	}
+		// Stop logger
+		this.logger.stop()
+		this.logger = undefined
 
+		// Resolve
+		return this
 
-
-
-// LIST ITEMS
-
-	list(path) {
-		return new Promise((resolve, reject) => {
-
-			// Get bucket from config
-			const bucket = this.config.buckets.files
-
-			// Log action
-			this.log(`Listing S3://${bucket}/${path}`, 1)
-
-			// List files
-			this.store
-				.listObjects({
-					Bucket: bucket,
-					Prefix: path
-				})
-				.promise()
-				.then(result => resolve(
-					result.Contents.map(file => file.Key)
-				))
-				.catch(reject)
-
-		})
-	}
-
-
-	listTemplates() {
-		return this.list(this.config.paths.templates)
-	}
-
-	listNations() {
-		return this.list(this.config.paths.nations)
 	}
 
 
 
 
+// FILE STRUCTURE
+	
+	addBucket(config, id) {
 
+		// Create bucket
+		let bucket = new Bucket(this, config)
 
-// READ ITEMS
+		// Store bucket
+		this.buckets = this.buckets.set(id, bucket)
 
-	read(file, filetype=".json") {
-		return new Promise((resolve, reject) => {
+		// Return store
+		return this
 
-			// Get bucket from config
-			const bucket = this.config.buckets.files
-			const key = `${file}.${filetype}`
-
-			// Log action
-			this.log(`Reading S3://${bucket}/${key}`, 1)
-
-			// Read file
-			this.store
-				.getObject({
-					Bucket: bucket,
-					Key: key
-				})
-				.promise()
-				.then(item => resolve(item.Body))
-				.catch(error => {
-					if (error.code = "NoSuchKey") {
-						reject(new Error(`STORAGE ERROR: '${key}' not found`))
-					} else {
-						reject(error)
-					}
-				})
-
-		})
 	}
 
-	readJSON(key) {
-		return this.read(key, "json")
-			.then(result => JSON.parse(result.toString('utf-8')))
+	in(key, ...rest) {
+		if (rest.length === 0) {
+			return this.buckets.get(key)
+		} else {
+			return this.buckets.get(key).in(...rest)
+		}
 	}
 
-	readTemplate(template) {
-		return this.readJSON(`${this.config.paths.templates}${template}`)
-	}
+	removeBucket(id) {
 
-	readNation(id) {
-		return this.readJSON(`${this.config.paths.nations}${id}/nation`)
+		// Remove bucket
+		this.buckets = this.buckets.delete(id)
+
+		// Return store
+		return this
+
 	}
 
 
 
 
-
-// WRITE ITEMS
-
-	write(obj, key, filetype=".json") {
-		return new Promise((resolve, reject) => {
-
-			// Get bucket from config
-			const bucket = this.config.buckets.files
-
-			// Log action
-			this.log(`Writing S3://${bucket}/${key}${filetype}`, 1)
-
-			// Write file
-			this.store
-				.putObject({
-					Bucket: bucket,
-					Key: `${key}${filetype}`,
-					Body: JSON.stringify(obj),
-					ContentType: "json"
-				})
-				.promise()
-				.then(() => resolve(obj))
-				.catch(reject)
-
-		})
-	}
-
-
-	writeNation(obj, key) {
-		return this.write(obj, `${this.config.paths.nations}${key}`)
-	}
-
-
-	writeMedia(media, key, type="png") {
-		return new Promise((resolve, reject) => {
-
-			// Get bucket from config
-			const bucket = this.config.buckets.media
-
-			// Log action
-			this.log(`Writing ${bucket}/${key}.${type}`, 1)
-			
-			// Write media
-			this.store
-				.putObject({
-					Bucket: bucket,
-					Key: `${key}.${type}`,
-					Body: Buffer.from(media, "base64"),
-					ContentType: `image/${type}`
-				})
-				.promise()
-				.then(() => resolve(key))
-				.catch(reject)
-
-		})
-	}
 
 }

@@ -15,6 +15,7 @@ export default class Logger {
 		this.name = name || "podium"
 
 		// Set defaults
+		this.open = false
 		this.prefix = ""
 		this.path = undefined
 		this.level = undefined
@@ -236,6 +237,7 @@ export default class Logger {
 
 			// Store current destination and return success
 			this.current = destination
+			this.open = true
 
 			// Log
 			this.log("[OPENING LOG]")
@@ -258,7 +260,7 @@ export default class Logger {
 
 			// Stop output
 			this.log = this.toNone
-			this.logError = this.errorTo.None
+			this.logError = this.errorToNone
 
 			// Clear variables
 			this.path = undefined

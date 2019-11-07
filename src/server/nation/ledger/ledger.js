@@ -56,7 +56,7 @@ export default class Ledger {
 		this.config = config
 
 		// Create logger
-		this.logger = await this.nation.makeLogger("Ledger")
+		this.logger = this.nation.makeLogger("Ledger")
 		this.log(`Connected Ledger to Nation '${this.nation.fullname}'`)
 
 		// Connect to Decentralized Ledger

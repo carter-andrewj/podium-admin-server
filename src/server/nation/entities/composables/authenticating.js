@@ -31,6 +31,9 @@ export default Child => class Entity extends Child {
 		// Set trait data
 		this.traits = this.traits.add("Authenticating")
 
+		// Actions
+		this.actions = this.actions.set("signOut", this.signOut)
+
 		// Disconnect Keystore on master disconnect
 		this.beforeDisconnect(this.signOut)
 
@@ -59,6 +62,7 @@ export default Child => class Entity extends Child {
 			address: this.address,
 			keyPair: this.keyStore.encrypted,
 			auth: this.auth,
+			passphrase: this.passphrase
 		}
 	}
 

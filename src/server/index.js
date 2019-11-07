@@ -4,6 +4,9 @@ import Podium from './podium.js';
 import * as config from '../../config.json'
 
 
+
+
+
 // SET UP ENVIRONMENT
 
 // Load .env file
@@ -17,22 +20,39 @@ if (!process.env.AWS_SECRET_ACCESS_KEY) {
 	throw "AWS SECRET KEY not found"
 }
 
+
+
+
+
 // Swallow listener warnings
 require('events').EventEmitter.prototype._maxListeners = 1000000
 
-// Declare podium variable
+
+
+
+// Declare variables
 let podium
 let live = false
 
-// Auto-resume
-process.stdin.resume()
 
 
+
+// CATCH ERRORS ON EXIT
+function fail(error) {
+	console.error(error)
+	process.exit("done")
+}
 
 
 
 // STOP SERVER
-async function exit(n) {
+async function exit(msg) {
+
+	// Exit safely
+	if (msg === "done") return
+
+	// Prevent automatic exit
+	process.stdin.resume()
 
 	// Ignore if not live
 	if (live) {
@@ -43,8 +63,21 @@ async function exit(n) {
 		// Clear flag
 		live = false
 
+		// Schedule auto-resume, if applicable
+		if (msg !== "ok" && msg !== "sigint") {
+
+			// Make backup file
+			await podium.setRestore().catch(fail)
+
+		} else {
+
+			// Clear backup file
+			await podium.clearRestore().catch(fail)
+
+		}
+
 		// Stop server
-		await podium.stop()
+		await podium.stop().catch(fail)
 
 		// Log
 		console.log("SERVER OFFLINE")
@@ -52,10 +85,10 @@ async function exit(n) {
 	}
 
 	// Report errors
-	if (n instanceof Error) console.error(n)
+	if (msg instanceof Error) console.error(msg)
 
-	// Exit process
-	process.exit()
+	// Exit safely
+	process.exit("done")
 
 }
 
@@ -74,14 +107,17 @@ async function enter() {
 		live = true
 
 		// Create
-		podium = await new Podium(config).start()
+		podium = await new Podium(config).start().catch(fail)
 
 		// Handle exit
-		process.on("exit", exit)
+		process.on("exit", x => x ? exit(x) : exit("ok"))
 		process.on("SIGINT", exit)
 		process.on("SIGUSR1", exit)
 		process.on("SIGUSR2", exit)
 		process.on("uncaughtException", exit)
+
+		// Restore from backup, if available
+		await podium.restore().catch(fail)
 
 		// Log
 		console.log("SERVER ONLINE")

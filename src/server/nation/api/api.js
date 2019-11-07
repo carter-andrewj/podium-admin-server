@@ -102,9 +102,9 @@ export default class API {
 			// Log
 			this.log("Disconnecting API", 1)
 			
-
 			// Close all connections
 			if (this.live) await this.close()
+
 
 
 			// Log

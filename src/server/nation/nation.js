@@ -5,6 +5,8 @@ import { Map } from 'immutable';
 import Ledger from './ledger/ledger';
 import Database from './database/database';
 import API from './api/api';
+import Population from './population/population';
+
 import Logger from '../utils/logger';
 
 import User from './entities/user';
@@ -20,15 +22,16 @@ export default class Nation {
 		this.podium = podium
 
 		// Outputs
-		this.ledger = null			// Decentralized store
-		this.database = null		// Data store
-		this.api = null				// API Websocket Server
+		this.ledger = undefined		// Decentralized store
+		this.database = undefined	// Data store
+		this.api = undefined		// API Websocket Server
 
 		// State
 		this.nation = this
 		this.constitution = null	// Config
 		this.founder = null			// Founding user
 		this.domain = null			// Root Domain
+		this.population = null		// Managed accounts
 
 		// Flags
 		this.creating = false		// Creating flag
@@ -60,9 +63,6 @@ export default class Nation {
 		this.resume = this.resume.bind(this)
 
 		this.save = this.save.bind(this)
-		this.load = this.load.bind(this)
-		this.storeData = this.storeData.bind(this)
-		this.storeMedia = this.storeMedia.bind(this)
 
 	}
 
@@ -75,14 +75,14 @@ export default class Nation {
 	}
 
 	get filename() {
-		return `${process.env.ADMIN_NAME}/${this.family}/${this.name}/${this.tags.join("/")}`
+		return `${process.env.ADMIN_NAME}/${this.family}/${this.name}/${this.tags.join("/")}/`
 	}
 
-	get config() {
+	get status() {
 		return {
 
 			last: new Date().getTime(),
-			
+
 			created: this.created,
 			creator: process.env.ADMIN_NAME,
 
@@ -114,11 +114,11 @@ export default class Nation {
 	}
 
 
-	get status() {
+	get report() {
 		return {
 
 			// Inherit status
-			...this.config,
+			...this.status,
 
 			// Current state
 			live: this.live,
@@ -130,11 +130,21 @@ export default class Nation {
 		}
 	}
 
+	get store() {
+		return this.podium.nationStore.in("current")
+	}
+
+	get media() {
+		return this.podium.mediaStore.in("current")
+	}
+
+
+
 
 
 // LOGGING
 
-	async makeLogger(name) {
+	makeLogger(name) {
 
 		// Get log config
 		const { to, path } = this.constitution.config.log
@@ -144,9 +154,6 @@ export default class Nation {
 
 		// Create and configure logger
 		let logger = new Logger(label).start(to, path)
-
-		// Reset log
-		await logger.clear()
 
 		// Return logger
 		return logger
@@ -196,6 +203,10 @@ export default class Nation {
 		this.family = family
 		this.tags = tags
 
+		// Set store name
+		this.store.setPath(this.filename)
+		this.media.setPath(this.filename)
+
 		// Start logger
 		this.logger = await this.makeLogger("Nation")
 		this.log(`CONSTITUTED NATION: ${this.fullname}`)
@@ -206,12 +217,11 @@ export default class Nation {
 
 
 
-
 		// Log
 		this.log("Connecting to Services:", 1)
 
 		// Get services from constitution
-		const { ledger, database, api } = this.constitution.services
+		const { ledger, database, api, population } = this.constitution.services
 
 		// Connect to services
 		await Promise.all([
@@ -240,6 +250,15 @@ export default class Nation {
 				.then(api => {
 					this.log("Connected to API", 2)
 					this.api = api
+				})
+				.catch(this.error),
+
+			// Connect population
+			new Population(this)
+				.connect(population)
+				.then(population => {
+					this.log("Connected to Population Manager", 2)
+					this.population = population
 				})
 				.catch(this.error)
 
@@ -328,7 +347,8 @@ export default class Nation {
 			profile.pictureType = file[1]
 
 			// Load image
-			userPicture = this.podium.store
+			userPicture = this.podium.templateStore
+				.in("media")
 				.read(...file)
 				.then(picture => profile.picture = picture)
 				.catch(this.error)
@@ -345,7 +365,8 @@ export default class Nation {
 			domainProfile.pictureType = file[1]
 
 			// Load image
-			domainPicture = this.podium.store
+			domainPicture = this.podium.templateStore
+				.in("media")
 				.read(...file)
 				.then(picture => domainProfile.picture = picture)
 				.catch(this.error)
@@ -378,6 +399,19 @@ export default class Nation {
 				.catch(this.error)
 
 		])
+
+
+
+
+		// Log
+		this.log("Pre-Populating:")
+
+		// Pre-populate nation
+		await this.population
+			.populate(this.constitution.population.prepopulate)
+			.catch(this.error)
+
+
 
 
 		// Set launched flag
@@ -445,6 +479,16 @@ export default class Nation {
 
 
 		// Log
+		this.log("Repopulating Actors", 1)
+
+		// Repopulate
+		await this.population
+			.repopulate()
+			.catch(this.error)
+
+
+
+		// Log
 		this.log(`Resumed Nation: ${this.fullname}`, 0)
 
 
@@ -454,6 +498,10 @@ export default class Nation {
 
 
 	async stop() {
+
+		// Ignore if nation is not live
+		if (!this.live) return
+
 
 		// Log
 		this.log("Stopping Nation", 1)
@@ -467,10 +515,21 @@ export default class Nation {
 		this.log("Closing Websocket", 2)
 
 		// Disconnect all clients
-		this.entities.map(e => e.removeAllClients())
+		await Promise.all(this.entities
+			.map(e => e.removeAllClients())
+			.valueSeq()
+		)
 
 		// Close websocket
-		this.api.close()
+		await this.api.close()
+
+
+
+		// Log
+		this.log("Deactivating Population", 2)
+
+		// Stop population
+		await this.population.disconnect()
 
 
 
@@ -504,7 +563,7 @@ export default class Nation {
 			this.ledger
 				.disconnect()
 				.then(() => {
-					this.log("Disconnected from Ledger", 3)
+					this.log("Disconnected Ledger", 3)
 					this.ledger = undefined
 				})
 				.catch(this.error),
@@ -512,7 +571,7 @@ export default class Nation {
 			this.database
 				.disconnect()
 				.then(() => {
-					this.log("Disconnected from Database", 3)
+					this.log("Disconnected Database", 3)
 					this.database = undefined
 				})
 				.catch(this.error),
@@ -520,11 +579,16 @@ export default class Nation {
 			this.api
 				.disconnect()
 				.then(() => {
-					this.log("Disconnected from API", 3)
+					this.log("Disconnected API", 3)
 					this.api = undefined
 				})
-				.catch(this.error),
+				.catch(this.error)
+
 		])
+
+		// Clear store path
+		this.store.setPath(null)
+		this.media.setPath(null)
 
 		// Clear flag
 		this.connected = false
@@ -577,62 +641,18 @@ export default class Nation {
 
 // FILES
 
-	save() {
+	get saveName() {
+		return this.podium.config.nations.saveName
+	}
+
+	async save() {
 
 		// Log
 		this.log("Saving Nation Backup", 1)
 
 		// Write to store
-		return this.storeData(this.config, "nation")
+		return await this.store.write(this.status, this.saveName)
 
-	}
-
-	load(fullname) {
-
-		// Log
-		this.log("Loading Nation Backup", 1)
-
-		// Write to store
-		return this.podium.store.readNation(fullname)
-
-	}
-
-
-	storeMedia(media, name, type="png") {
-		return new Promise((resolve, reject) => {
-
-			// Construct file name
-			const destination = `${this.filename}/${name}`
-
-			// Log
-			this.log(`Storing media: ${destination}`, 2)
-
-			// Write to store
-			this.podium.store
-				.writeMedia(media, destination, type)
-				.then(resolve)
-				.catch(this.logger.error)
-
-		})
-	}
-
-
-	storeData(data, name, type="json") {
-		return new Promise((resolve, reject) => {
-
-			// Construct file name
-			const destination = `${this.filename}/${name}`
-
-			// Log
-			this.log(`Storing file: ${destination}`, 2)
-
-			// Write to store
-			this.podium.store
-				.writeNation(data, destination, type)
-				.then(resolve)
-				.catch(this.logger.error)
-
-		})
 	}
 
 

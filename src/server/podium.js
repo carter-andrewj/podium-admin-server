@@ -24,9 +24,9 @@ export default class Podium {
 		this.nation = null
 
 		// Services
-		this.server = null
-		this.store = null
-		this.admin = null
+		this.server = undefined
+		this.store = undefined
+		this.admin = undefined
 
 		// Logging
 		const { to, path } = this.config.logger
@@ -35,15 +35,23 @@ export default class Podium {
 		// Methods
 		this.log = this.log.bind(this)
 		this.error = this.error.bind(this)
+		this.fail = this.fail.bind(this)
 
 		this.start = this.start.bind(this)
 		this.stop = this.stop.bind(this)
 
 		this.launchNation = this.launchNation.bind(this)
+
+		this.setRestore = this.setRestore.bind(this)
+		this.clearRestore = this.clearRestore.bind(this)
+		this.restore = this.restore.bind(this)
 		
 
 	}
 
+
+
+// LOGGING
 
 	log(line, level) {
 		this.logger.out(line, level)
@@ -53,6 +61,21 @@ export default class Podium {
 		this.logger.error(error, context)
 	}
 
+	fail(callback) {
+		return error => {
+			this.error(error)
+			if (callback) {
+				callback(error)
+			} else {
+				throw error
+			}
+		}
+	}
+
+
+
+
+// GETTERS
 
 	get status() {
 		return {
@@ -70,29 +93,59 @@ export default class Podium {
 		}
 	}
 
+	get dataStore() {
+		return this.store.in("data")
+	}
+
+	get nationStore() {
+		return this.store.in("data", "nations")
+	}
+
+	get templateStore() {
+		return this.store.in("data", "templates")
+	}
+
+	get mediaStore() {
+		return this.store.in("media")
+	}
+
+
+
+
+
+// SETUP
 
 	async start() {
 
 		// Log
 		await this.logger.clear()
 		this.log("STARTING PODIUM SERVER", 0)
-		this.log("Connecting to File Store", 1)
 
-		// Set up store
-		this.store = new Store(this)
-		await this.store
+
+
+
+		// Connect to store
+		this.store = await new Store(this)
 			.connect(this.config.store)
-			.catch(console.error)
+			.catch(this.error)
 
 		// Log
-		this.log("Launching Server", 1)
+		this.log("Connected to Store", 1)
 
-		// Launch admin API
+
+
+
+		// Start admin server
 		this.server = express()
-		this.admin = new AdminAPI(this)
-		await this.admin
+		this.admin = await new AdminAPI(this)
 			.connect(this.config.admin)
-			.catch(console.error)
+			.catch(this.error)
+
+		// Log
+		this.log("Admin Server Online", 1)
+
+
+
 
 		// Set live flag
 		this.live = true
@@ -115,26 +168,35 @@ export default class Podium {
 		// Clear flag
 		this.live = false
 
+		// Stop nation processes
+		await this.stopNation()
+
 		// Close services
 		await Promise.all([
 
 			// Disconnect store
-			this.store
+			!this.store ? null : this.store
 				.disconnect()
 				.then(() => {
-					this.log("Disconnected from File Store", 1)
+					this.log("Disconnected from Store", 1)
 					this.store = undefined
-				}),
+				})
+				.catch(this.fail),
 
 			// Disconnect admin server
-			this.admin
+			!this.admin ? null : this.admin
 				.disconnect()
 				.then(() => {
 					this.log("Disconnected Admin Server", 1)
 					this.admin = undefined
 				})
+				.catch(this.fail),
 
 		])
+
+		// Clear variables
+		this.started = undefined
+		this.server = undefined
 
 		// Log
 		this.log("SERVER OFFLINE", 0)
@@ -171,6 +233,9 @@ export default class Podium {
 
 	async stopNation() {
 
+		// Ignore if nation is not live
+		if (!this.nation) return
+
 		// Log
 		this.log("Stopping Nation", 1)
 
@@ -181,6 +246,93 @@ export default class Podium {
 		this.nation = undefined
 
 	}
+
+
+
+
+// RESTORE
+
+	async setRestore() {
+
+		// Ignore if no nation is live
+		if (!this.nation || !this.nation.live) return
+
+		// Log
+		this.log("Setting Auto-Restore", 1)
+
+		// Create local backup
+		return await new Promise(resolve => fs.writeFile(
+			this.config.nations.restore,
+			`${this.nation.filename}${this.nation.saveName}`,
+			resolve
+		))
+
+	}
+
+
+	async clearRestore() {
+		
+		// Ignore if store file does not exist
+		if (!fs.existsSync(this.config.nations.restore)) return
+
+		// Log
+		this.log("Clearing Auto-Restore", 2)
+
+		// Clear local backup
+		await new Promise(resolve => fs.unlink(
+			this.config.nations.restore,
+			resolve
+		))
+
+
+	}
+
+
+	async restore() {
+
+		// Check if restore file exists
+		let exists = await fs.promises
+			.access(this.config.nations.restore)
+			.then(() => true)
+			.catch(() => false)
+
+		// Ignore if restore file not found
+		if (!exists) return
+
+		// Log
+		this.log("Restoring Nation", 1)
+
+		// Read restore file
+		let nation = await fs.promises
+			.readFile(this.config.nations.restore)
+			.then(buffer => buffer.toString())
+
+		// Log
+		this.log(`Loading Nation: ${nation}`, 2)
+
+		// Read constitution
+		let constitution = await this.nationStore.read(nation)
+
+		// Check if constitution exists
+		if (!constitution) {
+			this.log(`No Constitution found for ${nation}`)
+			await this.clearRestore()
+			return
+		}
+
+		// Create nation
+		this.nation = new Nation(this)
+
+		// Load nation
+		await this.nation.launch(constitution)
+
+		// Return nation
+		return this.nation
+
+	}
+
+
+
 
 
 }

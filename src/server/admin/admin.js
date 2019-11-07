@@ -3,7 +3,11 @@ import fs from 'fs';
 import cors from 'cors';
 import path from 'path';
 
-import React from "react";
+import { v4 as uuid } from 'uuid';
+
+import { Map } from 'immutable';
+
+import Logger from '../utils/logger';
 
 
 
@@ -28,6 +32,8 @@ function handler(subject) {
 
 			// Unpack the data
 			const { key, ...args } = request.body
+
+
 
 			// Validate key
 			if (key !== process.env.ADMIN_KEY) {
@@ -107,6 +113,7 @@ export default class AdminAPI {
 		this.live = false
 		this.config = undefined
 		this.router = undefined
+		this.clients = Map()
 
 		// Methods
 		this.log = this.log.bind(this)
@@ -133,11 +140,11 @@ export default class AdminAPI {
 // LOGGING
 
 	log(line, level) {
-		this.podium.log(`ADMIN SERVER: ${line}`, level)
+		this.logger.log(line, level)
 	}
 
 	error(error, context) {
-		this.podium.error(error, `ADMIN SERVER: ${context}`)
+		this.logger.error(error, context)
 	}
 
 
@@ -148,8 +155,16 @@ export default class AdminAPI {
 		return this.config.port
 	}
 
-	get path() {
-		return this.config.path
+	get route() {
+		return this.config.route
+	}
+
+	get constitutionStore() {
+		return this.podium.templateStore.in("constitutions")
+	}
+
+	get populationStore() {
+		return this.podium.templateStore.in("populations")
 	}
 
 
@@ -158,11 +173,18 @@ export default class AdminAPI {
 // SETUP
 
 	connect(config) {
-		return new Promise((resolve, reject) => {
+		return new Promise(async (resolve, reject) => {
 
 
 			// Store config and server object
 			this.config = config
+
+
+			// Logging
+			const { to, path } = this.podium.config.logger
+			this.logger = new Logger("Admin").start(to, path)
+			await this.logger.clear()
+
 
 			// Build and configure router
 			this.router = express.Router()
@@ -186,21 +208,52 @@ export default class AdminAPI {
 			this.podium.server.use(express.static(__dirname + '/../../../'))
 			this.podium.server.use(express.json())
 			this.podium.server.use(cors())
-			this.podium.server.use(this.path, this.router)
+			this.podium.server.use(this.route, this.router)
+
 
 			// Open port
 			this.listener = this.podium.server.listen(this.port, () => {
+				
+				// Track connections
+				this.listener.on("connection", client => {
 
-				// Log
-				this.log(`Admin Console at https://localhost:${this.port}`, 2)
+					// Reject connections if closed/closing
+					if (!this.live) {
+
+						// Destroy connection
+						client.destroy()
+
+					// Otherwise, store the connection
+					} else {
+
+						// Generate a client id
+						let id = uuid()
+
+						// Store client
+						this.clients = this.clients.set(id, client)
+
+						// Remove client on close
+						client.once("close", () => {
+							this.clients = this.clients.delete(id)
+						})
+
+					}
+
+				})
 
 				// Set active flag
 				this.live = true
+
+				// Log
+				const message = `Admin Console at https://localhost:${this.port}`
+				console.log(" - ", message)
+				this.log(message, 2)
 
 				// Resolve
 				resolve(this)
 
 			})
+
 
 		})
 	}
@@ -216,17 +269,33 @@ export default class AdminAPI {
 				// Clear active flag
 				this.live = false
 
+				// Destroy all connections
+				this.clients.map(client => client.destroy())
+
 				// Stop server
-				this.listener.close(() => {
+				await new Promise(res => this.listener.close(() => {
 
-					// Clear variables
-					this.config = undefined
-					this.router = undefined
-					this.listener = undefined
+					// Log
+					const message = "Admin Server Offline"
+					console.log(" - ", message)
+					this.log(message, 2)
 
-				})
+					// Resolve
+					res()
+
+				}))
 
 			}
+
+			// Clear variables
+			this.config = undefined
+			this.router = undefined
+			this.listener = undefined
+			this.clients = Map()
+
+			// Stop logger
+			this.logger.stop()
+			this.logger = undefined
 
 			// Resolve
 			resolve(this)
@@ -283,16 +352,15 @@ export default class AdminAPI {
 
 		// Log
 		this.log("Retreiving Constitution Templates")
-
 		// Read templates
-		return this.podium.store
-			.listTemplates()
+		return this.constitutionStore
+			.list()
 			.then(result => Promise.all(result
 				.filter(f => f.match(/(\.template\.json)/g))
 				.map(filename => {
 					const l = filename.length
 					const file = filename.substring(0, l - 5)
-					return this.podium.store.readJSON(file)
+					return this.constitutionStore.read(file)
 				})
 			))
 
@@ -306,14 +374,14 @@ export default class AdminAPI {
 		this.log("Retreiving Nations")
 
 		// Read templates
-		return this.podium.store
-			.listNations()
+		return this.podium.nationStore
+			.list()
 			.then(result => Promise.all(result
-				.filter(f => f.match(/(nation\.json)/g))
+				.filter(f => f.match(/(\.json)/g))
 				.map(filename => {
 					const l = filename.length
 					const file = filename.substring(0, l - 5)
-					return this.podium.store.readJSON(file)
+					return this.podium.nationStore.read(file)
 				})
 			))
 

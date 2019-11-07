@@ -5,19 +5,19 @@
 	"main": "index.js",
 	"scripts": {
 		"init": "npm install & npm run make-filesystem & npm run launch-ledger",
-		"reset": "npm run reset-filesystem & npm run reset-ledger",
+		"reset": "npm run reset-filesystem & npm run reset-ledger && rm -f ./restore.txt",
 		"make-filesystem": "mkdir -p build & mkdir -p cache & mkdir -p db & mkdir -p logs & mkdir -p templates",
 		"clear-filesystem": "rm -rf ./cache/* & rm -rf ./logs/* & rm -rf ./db/*",
 		"reset-filesystem": "npm run clear-filesystem && npm run make-filesystem",
 		"launch-ledger": "docker-compose -p radixdlt -f ./radix/compose-ledger.yml up -d",
 		"clear-ledger": "docker-compose -f ./radix/compose-ledger.yml down && docker rm -f $(docker ps -a -q) && docker volume rm $(docker volume ls -q)",
 		"reset-ledger": "npm run clear-ledger && npm run launch-ledger",
-		"start": "npm run sync && npm run server & npm run interface-dev",
+		"start": "npm run sync && npm run launch-ledger && npm run server & npm run interface-dev",
 		"launch": "npm run server & npm run interface",
 		"server": "nodemon --exec babel-node src/server/index.js",
 		"interface": "./node_modules/.bin/webpack -w --mode=production",
 		"interface-dev": "./node_modules/.bin/webpack -w --mode=development",
-		"sync": "aws s3 sync ./templates s3://podium-config/templates --exclude '*DS_Store'"
+		"sync": "aws s3 sync ./templates s3://podium-config/templates/constitutions --exclude '*DS_Store'"
 	},
 	"keywords": [],
 	"author": "",

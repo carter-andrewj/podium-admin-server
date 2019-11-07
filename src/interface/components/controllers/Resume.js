@@ -5,7 +5,7 @@ import { fromJS } from 'immutable';
 
 
 
-class Resumer extends ImmutableComponent {
+class Resume extends ImmutableComponent {
 
 	constructor() {
 
@@ -88,4 +88,4 @@ class Resumer extends ImmutableComponent {
 
 }
 
-export default Resumer;
+export default Resume;

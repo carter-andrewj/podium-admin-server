@@ -191,6 +191,9 @@ export default class Session {
 		let user = await new User(this.nation)
 			.create(alias, passphrase)
 
+		// Follow founder
+		await user.follow(this.nation.founder)
+
 		// Return keyPair, auth token, and address
 		return user.access
 
@@ -263,7 +266,6 @@ export default class Session {
 		return true
 
 	}
-
 
 	async getNation({ task }) {
 		this.client.emit(task, { result: this.nation.fullname })

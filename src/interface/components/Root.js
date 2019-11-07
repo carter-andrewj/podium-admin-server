@@ -20,6 +20,7 @@ class Root extends ImmutableComponent {
 		})
 
 		this.ticker = null
+		this.reconnect = null
 
 		// Methods
 		this.getStatus = this.getStatus.bind(this)
@@ -33,11 +34,11 @@ class Root extends ImmutableComponent {
 
 		// Unpack config
 		const port = this.props.config.port
-		const path = this.props.config.path
+		const route = this.props.config.route
 
 		// Store in state
 		this.updateState(state => state
-			.set("api", `http://localhost:${port}${path}`),
+			.set("api", `http://localhost:${port}${route}`),
 			this.tick
 		)
 
@@ -117,6 +118,7 @@ class Root extends ImmutableComponent {
 						this.setDisconnected()
 						reject(new Error("SERVER OFFLINE"))
 					} else {
+						console.error(error)
 						reject(error)
 					}
 				})
@@ -133,6 +135,14 @@ class Root extends ImmutableComponent {
 		// Switch to offline page
 		this.updateState(state => state.set("live", false))
 
+		// Attempt reconnection in 1 second
+		// (prevents need to sign-in again after minor
+		// server changes trigger a nodemon reload)
+		this.reconnect = setTimeout(
+			() => this.setKey(this.getState("key")),
+			1000
+		)
+
 	}
 
 
@@ -140,7 +150,9 @@ class Root extends ImmutableComponent {
 		return new Promise((resolve, reject) => {
 			this.api("/authenticate", { key })
 				.then(() => this.updateState(
-					state => state.set("key", key),
+					state => state
+						.set("key", key)
+						.set("live", true),
 					resolve(true)
 				))
 				.catch(() => resolve(false))
@@ -194,6 +206,7 @@ class Root extends ImmutableComponent {
 
 	componentWillUnmount() {
 		clearInterval(this.ticker)
+		clearTimeout(this.reconnect)
 	}
 
 }

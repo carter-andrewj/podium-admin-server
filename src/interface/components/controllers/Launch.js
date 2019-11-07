@@ -7,7 +7,7 @@ import { fromJS, Map, List, OrderedMap } from 'immutable';
 
 
 
-class Launcher extends ImmutableComponent {
+class Launch extends ImmutableComponent {
 
 	constructor() {
 
@@ -367,4 +367,4 @@ class Launcher extends ImmutableComponent {
 
 }
 
-export default Launcher;
+export default Launch;

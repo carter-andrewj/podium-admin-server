@@ -3,27 +3,75 @@
 	"store": {
 		"apiVersion": "2006-03-01",
 		"region": "eu-west-1",
-		"sizeLimit": "5mb",
 		"buckets": {
-			"files": "podium-config",
-			"media": "media.podium-network.com",
-			"logs": ""
-		},
-		"paths": {
-			"templates": "templates/",
-			"nations": "nations/"
+			"data": {
+				"name": "podium-config",
+				"children": {
+					"templates": {
+						"path": "templates/",
+						"children": {
+							"media": {
+								"type": "media",
+								"path": "media/"
+							},
+							"constitutions": {
+								"type": "data",
+								"path": "constitutions/"
+							},
+							"populations": {
+								"type": "data",
+								"path": "populations/"
+							}
+						}
+					},
+					"nations": {
+						"path": "nations/",
+						"type": "data",
+						"children": {
+							"current": {
+								"path": null,
+								"type": "data",
+								"children": {
+									"actors": {
+										"type": "data",
+										"path": "actors/"
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"media": {
+				"name": "media.podium-network.com",
+				"children": {
+					"current": {
+						"type": "media",
+						"path": null
+					}
+				}
+			}
 		}
 	},
 
+
 	"admin": {
 		"port": 3210,
-		"path": "/admin",
+		"route": "/admin",
 		"refresh": 1000
 	},
+
 
 	"logger": {
 		"to": "file",
 		"path": "./logs"
+	},
+
+
+	"nations": {
+		"saveName": "constitution",
+		"restore": "./restore.txt"
 	}
+	
 
 }

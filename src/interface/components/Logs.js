@@ -74,9 +74,12 @@ class Logs extends ImmutableComponent {
 
 				// Exclude Error logs and logs from other nations
 				let logs = result.filter(l =>
+					l !== ".DS_Store" &&
 					!l.includes("_Error") &&
-					(l.includes("Master") || l.includes(nation))
+					(l.includes("Master") || l.includes("Store") ||
+						l.includes("Admin") || l.includes(nation))
 				)
+
 
 				// Store logs in state
 				this.updateState(

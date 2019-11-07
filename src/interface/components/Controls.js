@@ -4,8 +4,9 @@ import ImmutableComponent from '../utils/component';
 import { fromJS } from 'immutable';
 
 import Status from './controllers/Status';
-import Launcher from './controllers/Launcher';
-import Resumer from './controllers/Resumer';
+import Launch from './controllers/Launch';
+import Resume from './controllers/Resume';
+import Populate from './controllers/Populate';
 
 
 
@@ -14,12 +15,16 @@ const navigation = fromJS({
 		component: Status,
 		title: "Overview"
 	},
-	"launcher": {
-		component: Launcher,
+	"launch": {
+		component: Launch,
 		title: "New Nation"
 	},
-	"resumer": {
-		component: Resumer,
+	"resume": {
+		component: Resume,
+		title: "Resume Nation"
+	},
+	"populate": {
+		component: Populate,
 		title: "Resume Nation"
 	}
 })

@@ -25,13 +25,13 @@ export default class Media extends Entity(
 
 	@assert("Connected")
 	get url() {
-		return `${this.nation.mediaStore}/${this.file}`
+		return `${this.nation.media.path}/${this.file}`
 	}
 
 
 	async store(media, type="png") {
-		return await this.nation
-			.storeMedia(media, this.address, type)
+		return await this.nation.media
+			.write(media, this.address, type)
 			.catch(this.fail("Storing File"))
 	}
 

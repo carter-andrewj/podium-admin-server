@@ -76,7 +76,7 @@ class Status extends ImmutableComponent {
 						{!status.nation ?
 							<div
 								className="button control"
-								onClick={() => this.props.setMode("launcher")}>
+								onClick={() => this.props.setMode("launch")}>
 								<p>new</p>
 							</div>
 							: null
@@ -85,7 +85,7 @@ class Status extends ImmutableComponent {
 						{!status.nation ?
 							<div
 								className="button control"
-								onClick={() => this.props.setMode("resumer")}>
+								onClick={() => this.props.setMode("resume")}>
 								<p>resume</p>
 							</div>
 							: null

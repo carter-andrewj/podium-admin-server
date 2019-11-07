@@ -470,7 +470,7 @@ class BaseEntity {
 							if (complete) {
 
 								// Log completion
-								this.log("Up-to-Date with Ledger " + this.uid, 4)
+								this.log("Up-to-Date with Ledger", 4)
 
 								// Set complete flag
 								this.complete = true
@@ -488,17 +488,19 @@ class BaseEntity {
 								// REMOVE THIS ONCE RADIX FIX THEIR SYNC BUG
 								fakeCompleter = setTimeout(
 									async () => {
+										if (!this.complete) {
 
-										// Log completion
-										this.log("Up-to-Date with Ledger " + this.uid, 4)
+											// Log completion
+											this.log("Up-to-Date with Ledger", 4)
 
-										// Set complete flag
-										this.complete = true
+											// Set complete flag
+											this.complete = true
 
-										// Dispatch event
-										await this.dispatch("onComplete")
-											.catch(this.fail("Dispatching onComplete"))
+											// Dispatch event
+											await this.dispatch("onComplete")
+												.catch(this.fail("Dispatching onComplete"))
 									
+										}
 									},
 									1000
 								)
@@ -1003,7 +1005,7 @@ class BaseEntity {
 	}
 
 
-	removeClient(id) {
+	async removeClient(id) {
 
 		// Retreive socket
 		let socket = this.clients.getIn([id, "socket"])
@@ -1012,16 +1014,22 @@ class BaseEntity {
 		socket.emit(this.address, { type: "end" })
 
 		// Disconnect socket
-		socket.disconnect(true)
+		await socket.disconnect(true)
 
 		// Delete record
 		this.clients = this.clients.delete(id)
+
+		// Return entity
+		return this
 
 	}
 
 
 	removeAllClients() {
-		this.clients.keySeq().map(this.removeClient)
+		return Promise.all(this.clients
+			.keySeq()
+			.map(this.removeClient)
+		)
 	}
 
 
