@@ -42,11 +42,15 @@ function task(subject) {
 			// Return result, if still connected
 			if (this.connected) {
 				if (error) {
+
 					this.api.error(error, context)
 					this.client.emit(task, { error: error.message })
+
 				} else {
+
 					this.api.log(`${context} returned ${JSON.stringify(result)}`)
 					this.client.emit(task, { result: result })
+
 				}
 			}
 
@@ -89,6 +93,7 @@ export default class Session {
 		this.getNation = this.getNation.bind(this)
 
 		this.search = this.search.bind(this)
+		this.find = this.find.bind(this)
 
 	}
 
@@ -136,6 +141,7 @@ export default class Session {
 		this.client.on("nation", this.getNation)
 
 		this.client.on("search", this.search)
+		this.client.on("find", this.find)
 
 		// Handle errors
 		this.client.on(
@@ -177,6 +183,31 @@ export default class Session {
 
 
 
+// ENTITIES
+
+	withEntity(address, type) {
+
+		// Check if entity is cached
+		let entity = this.nation.entities[address]
+
+		// Otherwise, build the entity
+		if (!entity) {
+
+			// Get required entity class
+			let Entity = getEntity(type)
+
+			// Build entity
+			entity = new Entity(this.nation)
+				.fromAddress(address)
+
+		}
+
+		// Return entity
+		return entity
+
+	}
+
+
 
 
 // AUTHENTICATION
@@ -190,6 +221,9 @@ export default class Session {
 		// Create user
 		let user = await new User(this.nation)
 			.create(alias, passphrase)
+
+		// Connect user
+		await user.read()
 
 		// Follow founder
 		await user.follow(this.nation.founder)
@@ -211,6 +245,12 @@ export default class Session {
 			.authenticate
 			.withCredentials(alias, passphrase)
 
+		// Check if entity is already cached
+		user = await this.nation.unique(user)
+
+		// Connect user
+		await user.read()
+
 		// Return keyPair, auth token, and address
 		return user.access
 
@@ -228,6 +268,12 @@ export default class Session {
 			.authenticate
 			.withEncryptedKeyPair(keyPair, passphrase)
 
+		// Check if entity is already cached
+		user = await this.nation.unique(user)
+
+		// Connect user
+		await user.read()
+
 		// Return keyPair, auth token, and address
 		return user.access
 
@@ -244,23 +290,13 @@ export default class Session {
 		this.log(`Fetching '${type}' Entity: ${address}`)
 
 		// Check if entity is cached
-		let current = this.nation.entities.get(address)
+		let entity = this.withEntity(address, type)
 
-		// Otherwise, build the entity
-		if (!current) {
-
-			// Get required entity class
-			let Entity = getEntity(type)
-
-			// Build entity
-			current = await new Entity(this.nation)
-				.fromAddress(address)
-				.read()
-
-		}
+		// Start reading from entity
+		await entity.read()
 
 		// Subscribe client to entity data
-		current.addClient(this.client)
+		entity.addClient(this.client)
 
 		// Return success
 		return true
@@ -279,7 +315,19 @@ export default class Session {
 		this.log(`Searching for '${terms}' among ${JSON.stringify(among)}`)
 
 		// Return results
-		return this.nation.database.find(terms, among)
+		return this.nation.database.search(terms, among)
+
+	}
+
+
+	@task
+	async find({ term, among }) {
+
+		// Log
+		this.log(`Checking existence of '${term}' among ${JSON.stringify(among)}`)
+
+		// Return results
+		return this.nation.database.find(term, among)
 
 	}
 

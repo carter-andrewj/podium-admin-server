@@ -163,6 +163,10 @@ class BaseEntity {
 		this.onComplete = this.onComplete.bind(this)
 		this.beforeDisconnect = this.beforeDisconnect.bind(this)
 		this.onDisconnect = this.onDisconnect.bind(this)
+
+		this.onAddAttribute = this.onAddAttribute.bind(this)
+		this.onRemoveAttribute = this.onRemoveAttribute.bind(this)
+		this.onAttribute = this.onAttribute.bind(this)
 		
 		this.beforeNextConnect = this.beforeNextConnect.bind(this)
 		this.onNextConnect = this.onNextConnect.bind(this)
@@ -563,15 +567,13 @@ class BaseEntity {
 	}
 
 
-	@assert("Connected")
 	async disconnect() {
-
-		// Wait for promise, if still connecting
-		if (this.connecting) await this.connecting
 
 		// Ignore if not connected
 		if (!this.connected) return this
 
+		// Wait for promise, if still connecting
+		if (this.connecting) await this.connecting
 
 		// Ignore if already disconnecting
 		if (!this.disconnecting) {
@@ -911,18 +913,42 @@ class BaseEntity {
 
 					// Sync data
 					case "sync":
-						if (!this.clients.getIn([id, "syncing"])) {
-
-							// Set syncing flag (to stop duplicate listeners)
-							this.clients = this.clients.setIn([id, "syncing"], true)
+						if (!this.clients.getIn([id, "sync", "active"])) {
 
 							// Initial sync
 							this.sync(socket)
 
 							// Trigger syncs on data changes and new attributes
-							this.onChange(() => this.sync(socket))
-							this.addListener("onAddAttribute", () => this.sync(socket))
-							this.onComplete(event => this.sync(socket))
+							let sync = () => this.sync(socket)
+							let changeListener = this.onChange(sync)
+							let attributeListener = this.onAttribute(sync)
+							let completeListener = this.onComplete(sync)
+
+							// Store listeners
+							this.clients = this.clients.setIn([id, "sync"], Map({
+								active: true,
+								onChange: changeListener,
+								onAttribute: attributeListener,
+								onComplete: completeListener,
+							}))
+
+						}
+						done()
+						break
+
+					// Stop syncing
+					case "unsync":
+						if (this.clients.getIn([id, "sync", "active"])) {
+
+							// Remove listeners
+							this.clients.getIn([id, "sync", "onChange"]).remove()
+							this.clients.getIn([id, "sync", "onAttribute"]).remove()
+							this.clients.getIn([id, "sync", "onComplete"]).remove()
+
+							// Clear syncing flag
+							this.clients = this.clients.setIn([id, "sync"], Map({
+								active: false
+							}))
 
 						}
 						done()
@@ -964,11 +990,16 @@ class BaseEntity {
 
 	sync(socket) {
 
-		// Send latest data to the client
-		socket.emit(this.address, {
-			type: "sync",
-			...this.status
-		})
+		// Ignore when socket lost
+		if (socket) {
+
+			// Send latest data to the client
+			socket.emit(this.address, {
+				type: "sync",
+				...this.status
+			})
+
+		}
 
 	}
 
@@ -986,7 +1017,7 @@ class BaseEntity {
 			throw new Error(`Unknown Action: ${action}`)
 
 		// Check the auth token is valid
-		} else if (auth !== this.master.auth) { 
+		} else if (auth !== this.master.auth) {
 			throw new Error("Invalid Auth Token")
 
 		// Execute action
@@ -1010,11 +1041,16 @@ class BaseEntity {
 		// Retreive socket
 		let socket = this.clients.getIn([id, "socket"])
 
-		// Emit disconnect event
-		socket.emit(this.address, { type: "end" })
+		// Handle socket failures
+		if (socket) {
 
-		// Disconnect socket
-		await socket.disconnect(true)
+			// Emit disconnect event
+			socket.emit(this.address, { type: "end" })
+
+			// Disconnect socket
+			await socket.disconnect(true)
+
+		}
 
 		// Delete record
 		this.clients = this.clients.delete(id)
@@ -1209,6 +1245,25 @@ class BaseEntity {
 
 	onDisconnect(callback, onError) {
 		return this.addListener("onDisconnect", callback, onError)
+	}
+
+	onAttribute(callback, onError) {
+		let add = this.onAddAttribute(callback, onError)
+		let remove = this.onRemoveAttribute(callback, onError)
+		return {
+			remove: () => {
+				add.remove()
+				remove.remove()
+			}
+		}
+	}
+
+	onAddAttribute(callback, onError) {
+		return this.addListener("onAddAttribute", callback, onError)
+	}
+
+	onRemoveAttribute(callback, onError) {
+		return this.addListener("onRemoveAttribute", callback, onError)
 	}
 
 

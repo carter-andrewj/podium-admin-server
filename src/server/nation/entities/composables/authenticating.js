@@ -72,7 +72,6 @@ export default Child => class Entity extends Child {
 
 // AUTHENTICATE
 
-	@assert("Blank")
 	get authenticate () {
 		return {
 
@@ -188,7 +187,7 @@ export default Child => class Entity extends Child {
 	async signOut() {
 
 		// Disconnect keystore
-		if (this.keyStore.connected) {
+		if (this.keyStore && this.keyStore.connected) {
 			await this.keyStore
 				.disconnect()
 				.catch(this.fail("Disconnecting Keystore"))

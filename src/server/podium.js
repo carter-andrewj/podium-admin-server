@@ -88,7 +88,7 @@ export default class Podium {
 				live: this.admin.live
 			},
 
-			nation: this.nation ? this.nation.status : null
+			nation: this.nation ? this.nation.report : null
 
 		}
 	}

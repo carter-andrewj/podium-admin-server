@@ -16,7 +16,7 @@ export default class Database {
 		this.config = undefined		// Config
 		this.logger = undefined		// Logging
 
-		this.search = undefined
+		this.searchTable = undefined
 
 		// Methods
 		this.connect = this.connect.bind(this)
@@ -24,6 +24,8 @@ export default class Database {
 		
 		this.initSearch = this.initSearch.bind(this)
 		this.addSearch = this.addSearch.bind(this)
+
+		this.search = this.search.bind(this)
 		this.find = this.find.bind(this)
 
 	}
@@ -96,7 +98,7 @@ export default class Database {
 			this.log("Disconnecting Database", 1)
 
 			// Clear collections
-			this.search = undefined
+			this.searchTable = undefined
 
 			// Close database (will trigger autosave)
 			this.db.close()
@@ -126,11 +128,11 @@ export default class Database {
 	initSearch() {
 
 		// Get current table
-		this.search = this.db.getCollection("search")
+		this.searchTable = this.db.getCollection("search")
 
 		// Create collection, if not found
-		if (!this.search) {
-			this.search = this.db.addCollection(
+		if (!this.searchTable) {
+			this.searchTable = this.db.addCollection(
 				"search",
 				{ unique: ["address"] }
 			)
@@ -142,7 +144,7 @@ export default class Database {
 	async addSearch(type, key, address) {
 
 		// Update database
-		this.search.insert({
+		this.searchTable.insert({
 			type,
 			key: key.toLowerCase(),
 			address
@@ -156,11 +158,21 @@ export default class Database {
 
 	}
 
-	find(terms, among = ["user"]) {
-		return this.search
+	search(terms, among = ["user"]) {
+		return this.searchTable
 			.find({
 				type: { "$in": among },
 				key: { "$regex": terms.toLowerCase() }
+			})
+			.map(r => r.address)
+	}
+
+
+	find(term, among = ["user"]) {
+		return this.searchTable
+			.find({
+				type: { "$in": among },
+				key: { "$eq": term.toLowerCase() }
 			})
 			.map(r => r.address)
 	}

@@ -45,7 +45,7 @@ export default class Nation {
 		this.tags = null			// Tags
 
 		// Entity management
-		this.entities = Map()		// Entity cache
+		this.entities = {}			// Entity cache
 
 		// Logging
 		this.logger = null
@@ -61,6 +61,9 @@ export default class Nation {
 		this.launch = this.launch.bind(this)
 		this.create = this.create.bind(this)
 		this.resume = this.resume.bind(this)
+
+		this.cache = this.cache.bind(this)
+		this.unique = this.unique.bind(this)
 
 		this.save = this.save.bind(this)
 
@@ -125,7 +128,7 @@ export default class Nation {
 			connected: this.connected,
 			creating: this.creating,
 
-			entities: this.entities.size
+			entities: Object.keys(this.entities).length
 
 		}
 	}
@@ -515,7 +518,7 @@ export default class Nation {
 		this.log("Closing Websocket", 2)
 
 		// Disconnect all clients
-		await Promise.all(this.entities
+		await Promise.all(Map(this.entities)
 			.map(e => e.removeAllClients())
 			.valueSeq()
 		)
@@ -546,7 +549,7 @@ export default class Nation {
 
 		// Disconnect all entities
 		let check = await Promise.all(
-			this.entities
+			Map(this.entities)
 				.valueSeq()
 				.map(e => e.disconnect())
 		)
@@ -598,7 +601,7 @@ export default class Nation {
 		this.log("Cleaning Up", 2)		
 
 		// Clear variables
-		this.entities = Map()
+		this.entities = {}
 		this.founder = undefined
 		this.domain = undefined
 		this.constitution = undefined
@@ -620,16 +623,52 @@ export default class Nation {
 
 
 
+
+
+// CACHE
+
 	// Cache entities
 	cache(entity) {
 
 		// Cache entity, if not found
-		if (!this.entities.get(entity.address)) {
-			this.entities = this.entities.set(entity.address, entity)
+		if (!this.entities[entity.address]) {
+			this.entities[entity.address] = entity
 		}
 
 		// Return cached entity
-		return this.entities.get(entity.address)
+		return this.entities[entity.address]
+
+	}
+
+	// Deduplicate 2 entities
+	// (Required because there are cases where an entity
+	// needs to be created blind - such as sign-in - and
+	// so cannot be checked against the cache until after
+	// connection.)
+	async unique(entity) {
+
+		// Get cached version of entity
+		let current = this.entities[entity.address]
+
+		// Cache entity and return if not already cached
+		if (!current) return this.cache(entity)
+
+		// Authenticated cached entity, if applicable
+		if (entity.is("Authenticating") &&
+				entity.authenticated &&
+				!current.authenticated) {
+			await current
+				.authenticate
+				.withKeyPair(entity.keyPair)
+		}
+
+		// Disconnect duplicate entity
+		if (entity.connected) {
+			await entity.disconnect()
+		}
+
+		// Return the cached entity
+		return current
 
 	}
 
