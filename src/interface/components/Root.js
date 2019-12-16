@@ -83,9 +83,13 @@ class Root extends ImmutableComponent {
 				})
 			}
 
+			console.log("calling api", `${this.getState("api")}${route}`)
+
 			// Send to API
 			fetch(`${this.getState("api")}${route}`, payload)
 				.then(response => {
+
+					console.log("received response", response)
 
 					// Handle success
 					if (response.ok) {
@@ -114,6 +118,7 @@ class Root extends ImmutableComponent {
 
 				})
 				.catch(error => {
+					console.error(error)
 					if (error.message === "Failed to fetch") {
 						this.setDisconnected()
 						reject(new Error("SERVER OFFLINE"))
