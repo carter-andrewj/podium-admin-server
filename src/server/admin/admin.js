@@ -33,8 +33,6 @@ function handler(subject) {
 			// Unpack the data
 			const { key, ...args } = request.body
 
-			console.log("handler", key, "vs")
-
 			// Validate key
 			if (key !== process.env.ADMIN_KEY) {
 
@@ -190,6 +188,7 @@ export default class AdminAPI {
 			this.router = express.Router()
 
 			// Set routes for server status
+			this.router.get("/", (_, r) => r.send("ADMIN API ONLINE"))
 			this.router.post("/", this.getStatus)
 
 			this.router.post("/authenticate", this.authenticate)
@@ -216,8 +215,6 @@ export default class AdminAPI {
 				
 				// Track connections
 				this.listener.on("connection", client => {
-
-					console.log("new connection")
 
 					// Reject connections if closed/closing
 					if (!this.live) {

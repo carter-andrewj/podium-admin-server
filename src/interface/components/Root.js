@@ -33,12 +33,16 @@ class Root extends ImmutableComponent {
 	componentDidMount() {
 
 		// Unpack config
-		const port = this.props.config.port
 		const route = this.props.config.route
+
+		// Get current url
+		let url = window.location.href
+		if (url.charAt(url.length - 1) === "/")
+			url = url.substring(0, url.length - 1)
 
 		// Store in state
 		this.updateState(state => state
-			.set("api", `http://localhost:${port}${route}`),
+			.set("api", `${url}${route}`),
 			this.tick
 		)
 
@@ -83,13 +87,9 @@ class Root extends ImmutableComponent {
 				})
 			}
 
-			console.log("calling api", `${this.getState("api")}${route}`)
-
 			// Send to API
 			fetch(`${this.getState("api")}${route}`, payload)
 				.then(response => {
-
-					console.log("received response", response)
 
 					// Handle success
 					if (response.ok) {
@@ -118,7 +118,6 @@ class Root extends ImmutableComponent {
 
 				})
 				.catch(error => {
-					console.error(error)
 					if (error.message === "Failed to fetch") {
 						this.setDisconnected()
 						reject(new Error("SERVER OFFLINE"))
