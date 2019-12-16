@@ -1,6 +1,6 @@
 import User from './user';
 import Alias from './alias';
-import Profile from './Profile';
+import Profile from './profile';
 import Domain from './domain';
 import Token from './token';
 import Post from './post';
