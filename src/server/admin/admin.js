@@ -33,7 +33,7 @@ function handler(subject) {
 			// Unpack the data
 			const { key, ...args } = request.body
 
-
+			console.log("handler", key, "vs", process.env.ADMIN_KEY)
 
 			// Validate key
 			if (key !== process.env.ADMIN_KEY) {
@@ -216,6 +216,8 @@ export default class AdminAPI {
 				
 				// Track connections
 				this.listener.on("connection", client => {
+
+					console.log("new connection")
 
 					// Reject connections if closed/closing
 					if (!this.live) {
