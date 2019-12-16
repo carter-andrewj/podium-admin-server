@@ -33,7 +33,7 @@ function handler(subject) {
 			// Unpack the data
 			const { key, ...args } = request.body
 
-			console.log("handler", key, "vs", process.env.ADMIN_KEY)
+			console.log("handler", key, "vs")
 
 			// Validate key
 			if (key !== process.env.ADMIN_KEY) {
