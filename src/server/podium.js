@@ -294,6 +294,10 @@ export default class Podium {
 
 	async restore() {
 
+		console.log(fs)
+		console.log("---------------")
+		console.log(fs.promises)
+
 		// Check if restore file exists
 		let exists = await fs.promises
 			.access(this.config.nations.restore)
