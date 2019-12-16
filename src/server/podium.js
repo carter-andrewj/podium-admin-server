@@ -105,6 +105,10 @@ export default class Podium {
 		return this.store.in("data", "templates")
 	}
 
+	get credentialStore() {
+		return this.store.in("data", "credentials")
+	}
+
 	get mediaStore() {
 		return this.store.in("media")
 	}

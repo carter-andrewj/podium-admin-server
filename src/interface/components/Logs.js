@@ -24,12 +24,15 @@ class Logs extends ImmutableComponent {
 			box: {
 				height: "unset",
 				width: "unset"
-			}
+			},
+			atEnd: true,
 		})
+		this.scrollGap = undefined
 
 		// Refs
 		this.card = null
 		this.header = null
+		this.bottom = null
 
 		// Timers
 		this.refresh = null
@@ -38,15 +41,33 @@ class Logs extends ImmutableComponent {
 		this.listLogs = this.listLogs.bind(this)
 		this.setLog = this.setLog.bind(this)
 		this.loadLog = this.loadLog.bind(this)
+
+		this.loadError = this.loadError.bind(this)
+		this.showData = this.showData.bind(this)
+
+		this.back = this.back.bind(this)
+		this.onScroll = this.onScroll.bind(this)
+		this.scrollToEnd = this.scrollToEnd.bind(this)
+
+		this.play = this.play.bind(this)
+		this.pause = this.pause.bind(this)
+
 		this.wrap = this.wrap.bind(this)
+		this.processLine = this.processLine.bind(this)
 
 	}
 
 
+
+
+// LIFECYCLE
+
 	componentDidMount() {
 
+		// Load logs
 		this.listLogs()
 
+		// Scale window
 		let headerMargin = window
 			.getComputedStyle(this.header)
 			.getPropertyValue("margin-bottom")
@@ -66,6 +87,15 @@ class Logs extends ImmutableComponent {
 
 	}
 
+
+	componentWillUnmount() {
+		clearTimeout(this.refresh)
+	}
+
+
+
+
+// LOG DATA
 
 	listLogs() {
 		const nation = this.props.status.getIn(["nation", "name"]) + "|"
@@ -112,25 +142,20 @@ class Logs extends ImmutableComponent {
 				state => state
 					.set("history", List())
 					.set("output", this.wrap(log, true)),
-				this.play
+				() => {
+					this.scrollToEnd()
+					this.play()
+				}
 			))
 			.catch(console.error)
 
 	}
 
 
-	play() {
-		clearTimeout(this.refresh)
-		this.refresh = setTimeout(
-			this.listLogs,
-			this.props.config.refresh
-		)
-	}
 
-	pause() {
-		clearTimeout(this.refresh)
-	}
 
+
+// SUPPLIMENTAL DATA
 
 	loadError() {
 
@@ -154,6 +179,114 @@ class Logs extends ImmutableComponent {
 
 	}
 
+
+	showData(data) {
+
+		// Stop log refreshing
+		this.pause()
+
+		// Get current output
+		const output = this.getState("output")
+
+		// Format data
+		let textified = JSON.stringify(JSON.parse(data), null, "\t")
+
+		// Update display
+		this.updateState(
+
+			// Show data
+			state => state
+				.update("history", h => h.push(output))
+				.set("output", this.wrap(textified)),
+
+		)
+
+	}
+
+
+
+
+
+
+// UTILITIES
+
+	back() {
+		const history = this.getState("history")
+		if (history.size > 0) {
+
+			// Get previous output
+			const output = history.last()
+
+			// Update display
+			this.updateState(
+				state => state
+					.update("history", h => h.butLast())
+					.set("output", output),
+				history.size === 1 ? this.play : null
+			)
+
+		}
+	}
+
+	onScroll({ target }) {
+
+		// Unpack target
+		const { scrollHeight, scrollTop, clientHeight } = target
+		let atEnd = (scrollHeight - scrollTop === clientHeight)
+
+		// Check current distance
+		this.scrollGap = clientHeight - (scrollHeight - scrollTop)
+
+		// Check if scroll position is at bottom
+		if (atEnd !== this.getState("atEnd")) {
+			this.updateState(state => state.set("atEnd", atEnd))
+		}
+
+	}
+
+
+	scrollToEnd(force = false) {
+
+		// Ignore when not at the end of the div
+		if (!this.getState("atEnd") && !force) return
+
+		// Check distance to scroll
+		// (long distances omit smooth scrolling for speed)
+		let config
+		if (this.scrollGap && this.scrollGap < 1000) config = { behavior: "smooth" }
+
+		// Scroll to bottom
+		this.bottom.scrollIntoView(config)
+
+	}
+
+
+
+
+// UPDATING
+
+	play() {
+
+		// Reset timer
+		clearTimeout(this.refresh)
+
+		// Schedule next log load
+		this.refresh = setTimeout(
+			this.listLogs,
+			this.props.config.refresh
+		)
+
+	}
+
+	pause() {
+		clearTimeout(this.refresh)
+	}
+
+
+	
+
+
+// RENDER
 
 	wrap(log, dated=false) {
 
@@ -296,46 +429,6 @@ class Logs extends ImmutableComponent {
 	}
 
 
-
-	showData(data) {
-
-		// Stop log refreshing
-		this.pause()
-
-		// Get current output
-		const output = this.getState("output")
-
-		// Format data
-		let textified = JSON.stringify(JSON.parse(data), null, "\t")
-
-		// Update display
-		this.updateState(state => state
-			.update("history", h => h.push(output))
-			.set("output", this.wrap(textified))
-		)
-
-	}
-
-
-	back() {
-		const history = this.getState("history")
-		if (history.size > 0) {
-
-			// Get previous output
-			const output = history.last()
-
-			// Update display
-			this.updateState(
-				state => state
-					.update("history", h => h.butLast())
-					.set("output", output),
-				history.size === 1 ? this.play : null
-			)
-
-		}
-	}
-
-
 	render() {
 
 		const box = this.getState("box")
@@ -387,26 +480,41 @@ class Logs extends ImmutableComponent {
 					minWidth: box.width,
 					maxWidth: box.width,
 				}}>
-				<div className="output">
+				<div
+					onScroll={this.onScroll}
+					className="output">
+
 					{output}
+
+					<div ref={ref => this.bottom = ref} />
+
+				</div>
+
+				<div className="buttons">
+
 					{this.getState("history").size > 0 ?
 						<div
-							onClick={() => this.back()}
+							onClick={this.back}
 							className="button round">
-							{"<"}
+							<p>{"<"}</p>
 						</div>
 						: null
 					}
+
+					<div
+						onClick={() => this.scrollToEnd(true)}
+						className="button round">
+						<p>V</p>
+					</div>
+
 				</div>
+
 			</div>
 
 		</div>
 		
 	}
 
-	componentWillUnmount() {
-		clearTimeout(this.refresh)
-	}
 
 }
 

@@ -20,6 +20,7 @@ export default Child => class Entity extends Child {
 
 		this.store = this.store.bind(this)
 		this.register = this.register.bind(this)
+		this.retrieveOrRegister = this.retrieveOrRegister.bind(this)
 
 		// Traits
 		this.traits = this.traits.add("Storable")
@@ -108,6 +109,23 @@ export default Child => class Entity extends Child {
 		this.log("Registered", 4)
 
 		// Return entity
+		return this
+
+	}
+
+
+	async retrieveOrRegister(file, type) {
+
+		// Attempt registration, ignoring
+		// 'already registered' errors 
+		await this.register(file, type)
+			.catch(error => {
+				if (error.message !== "STORABLE ERROR: Already Registered") {
+					throw error
+				}
+			})
+
+		// Return storable
 		return this
 
 	}

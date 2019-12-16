@@ -129,6 +129,9 @@ export default Child => class Entity extends Child {
 			])
 			.catch(this.fail("Following", subject))
 
+		// Dispatch alerts
+		this.nation.database.alert("follow", subject, this)
+
 		// Return entity
 		return this
 
@@ -162,6 +165,9 @@ export default Child => class Entity extends Child {
 
 			])
 			.catch(this.fail("Unfollowing", subject))
+
+		// Dispatch alerts
+		this.nation.database.alert("unfollow", subject, this)
 
 		// Return entity
 		return this

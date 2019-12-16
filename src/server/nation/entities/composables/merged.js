@@ -88,7 +88,7 @@ export default Child => class Entity extends Child {
 	// Compose output record from history
 	// of transaction payloads
 	async build() {
-		this.record = this.history.reduce(
+		this.record = this.timeline.reduce(
 			(last, next) => last
 				.mergeDeepWith(this.combine, next),
 			Map(this.defaults)

@@ -7,6 +7,8 @@ import Moderated from './composables/moderated';
 import Respondable from './composables/respondable';
 import Reactable from './composables/reactable';
 
+import Media from './media';
+
 import { assert } from './utils';
 
 
@@ -33,13 +35,14 @@ export default class Post extends Entity(
 		// Methods
 		this.fromPostNumber = this.fromPostNumber.bind(this)
 
-		this.author = this.author.bind(this)
+		this.markup = this.markup.bind(this)
+		this.compose = this.compose.bind(this)
 		this.amend = this.amend.bind(this)
 		this.retract = this.retract.bind(this)
 
 		// Actions
 		this.actions = this.actions
-			.set("Author", this.author)
+			.set("Compose", this.compose)
 			.set("Amend", this.amend)
 			.set("Retract", this.retract)
 
@@ -51,6 +54,16 @@ export default class Post extends Entity(
 
 	get number() {
 		return this.record.get("number")
+	}
+
+	get text() {
+		return this.record.get("text")
+	}
+
+	get characters() {
+		return this.text
+			.split(this.nation.constants.regex.reference)
+			.join("")
 	}
 
 
@@ -108,23 +121,50 @@ export default class Post extends Entity(
 
 // CREATE
 
+	markup(regex, label) {
+
+		// Get references in text
+		let references = this.text.match(regex)
+
+		// Ignore if no references found
+		if (!references) return
+
+		// Split out post text by regex
+		let newText = List(this.text.split(regex))
+
+			// Match regex sections and interleave
+			.interleave(references.map((item, i) => {
+
+				// Add markup content to state references
+				this.record = this.record
+					.setIn(["references", label, i], item)
+
+				// Return markup text
+				return `{${label}:${i}}`
+
+			}))
+			.toJS()
+			.join("")
+
+		// Update post text
+		this.record = this.record.set("text", newText)
+
+	}
+	
+
 	@assert("Blank", "Authenticated")
-	async author(content, tokenSymbol) {
+	async compose(content, tokenSymbol) {
 
 		// Unpack content
-		const { text, mentions, topics, links, media } = content
+		const { text, media } = content
 
-		// Get token
-		let token = this.domain.getToken(tokenSymbol)
+		// Strip references from text
+		let chars = ""
 
-		// Calculate post cost
-		let cost = token.cost.content(content)
-
-		// Ensure user has the balance to pay for this post
-
-		// Set up for next post account
+		// Store text
 		this.record = fromJS({
-			number: this.master.postCount + 1
+			number: this.master.postCount + 1,
+			text: text,
 		})
 
 		// Create and connect to account
@@ -136,6 +176,31 @@ export default class Post extends Entity(
 		if (!this.empty) {
 			throw new Error(`${this.master.label} has already posted ${this.number} times`)
 		}
+
+		// Markup text
+		const { url, mention, topic, domain } = this.nation.constants.regex
+		this.markup(url, "links")
+		this.markup(mention, "mentions")
+		this.markup(topic, "topics")
+		this.markup(domain, "domains")
+
+		// Register media
+		let mediaEntities
+		if (media && media.length > 0) {
+			mediaEntities = await Promise.all(media.map(
+				({ base64, type }) => new Media(this)
+					.retrieveOrRegister(base64, type)
+			))
+		}
+
+		// Get token
+		let token = this.domain.getToken(tokenSymbol)
+
+		// Calculate post cost
+		let cost = token.cost.content({
+			text: this.characters,
+			...this.record.get("references", Map()).toJS()
+		})
 
 		// Construct parentage data
 		let reply = false
@@ -155,19 +220,16 @@ export default class Post extends Entity(
 		}
 
 		// Make post record
-		this.record = fromJS({
-			text: text,
+		this.record = this.record.merge(fromJS({
 			cost: cost,
 			currency: tokenSymbol,
 			author: this.master.address,
 			domain: this.domain.address,
-			mentions: mentions ? mentions.map(m => m.address) : undefined,
-			topics: topics ? topics.map(m => m.address) : undefined,
-			links: links,
-			media: media ? media.map(m => m.address) : undefined,
+			media: mediaEntities ?
+				mediaEntities.map(m => m.address)
+				: undefined,
 			...parentage,
-			...this.record.toJS()
-		})
+		}))
 
 		// Write to ledger
 		await Promise

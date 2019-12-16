@@ -91,7 +91,7 @@ export default Child => class Entity extends Child {
 // RECEIVE ATOMS
 
 	reindex() {
-		this.index = this.history.reduce(
+		this.index = this.timeline.reduce(
 			(last, next) => {
 				if (!next.exclude) {
 					return last.set(next.address, next.support || {})
@@ -139,7 +139,7 @@ export default Child => class Entity extends Child {
 
 // WRITE
 
-	@assert("Connected", "Authenticated")
+	@assert("Connected")
 	add(entity, support) {
 
 		// Ensure entity is of the indexed type
@@ -164,7 +164,7 @@ export default Child => class Entity extends Child {
 	}
 
 
-	@assert("Connected", "Authenticated")
+	@assert("Connected")
 	delete(entity) {
 
 		// Ensure entity is of the indexed type

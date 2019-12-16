@@ -1,4 +1,4 @@
-
+import { List } from 'immutable';
 
 
 
@@ -167,4 +167,76 @@ export function cached(subject) {
 
 
 
+
+export function buffer(subject) {
+
+	// Get decorated method
+	let name = subject.name
+	let method = subject.descriptor.value
+
+	// Defined wrapper function
+	let wrapped = async function(...args) {
+
+		if (!this) console.log("what?", subject)
+
+		// Check if this function is already captured
+		if (this.buffering.get(name)) {
+
+			// Return a promise that will resolve once
+			// this instance of the buffered method has
+			// been completed
+			return await new Promise((resolve, reject) => {
+				let recipe = {
+					nextArgs: args,
+					resolve: resolve,
+					reject: reject
+				}
+				this.buffered = this.buffered.update(
+					name,
+					q => q ? q.push(recipe) : List([ recipe ])
+				)
+			})
+
+		} else {
+
+			// Capture the method
+			this.buffering = this.buffering.set(name, true)
+
+			// Execute the generating method
+			let result = await method.apply(this, args)
+
+			// Clear captured flag
+			this.buffering = this.buffering.set(name, false)
+
+			// If queued methods exist, execute next
+			let buffered = this.buffered.get(name)
+			if (buffered && buffered.size > 0) {
+
+				// Unpack next call
+				let { nextArgs, resolve, reject } = buffered.first()
+
+				// Update queue
+				this.buffered = this.buffered.update(name, q => q.rest())
+
+				// Call next in buffer asynchronously
+				wrapped.apply(this, nextArgs)
+					.then(resolve)
+					.catch(reject)
+
+			}
+
+			// Return the result
+			return result
+
+		}
+
+	}
+
+	// Set the new method
+	subject.descriptor.value = wrapped
+
+	// Return the new function
+	return subject
+
+}
 

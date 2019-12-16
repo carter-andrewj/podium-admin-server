@@ -80,6 +80,8 @@ export default class Session {
 
 		// State
 		this.client = undefined
+		this.user = undefined
+		this.alertListener = undefined
 
 		// Methods
 		this.connect = this.connect.bind(this)
@@ -88,9 +90,12 @@ export default class Session {
 		this.register = this.register.bind(this)
 		this.signIn = this.signIn.bind(this)
 		this.keyIn = this.keyIn.bind(this)
+		this.initialize = this.initialize.bind(this)
 
 		this.get = this.get.bind(this)
 		this.getNation = this.getNation.bind(this)
+
+		this.seen = this.seen.bind(this)
 
 		this.search = this.search.bind(this)
 		this.find = this.find.bind(this)
@@ -140,6 +145,8 @@ export default class Session {
 		this.client.on("get", this.get)
 		this.client.on("nation", this.getNation)
 
+		this.client.on("seen", this.seen)
+
 		this.client.on("search", this.search)
 		this.client.on("find", this.find)
 
@@ -173,6 +180,15 @@ export default class Session {
 		// Set flag
 		this.connected = false
 
+		// Stop listening to alerts
+		if (this.alertListener) {
+			this.alertListener.remove()
+			this.alertListener = undefined
+		}
+
+		// Remove user
+		this.user = undefined
+
 		// Message client
 		this.client.emit("disconnect")
 
@@ -186,6 +202,9 @@ export default class Session {
 // ENTITIES
 
 	withEntity(address, type) {
+
+		// Reject back data
+		if (!address) throw `Invalid Address: ${address}`
 
 		// Check if entity is cached
 		let entity = this.nation.entities[address]
@@ -219,17 +238,17 @@ export default class Session {
 		this.log(`Registering User '${alias}'`)
 
 		// Create user
-		let user = await new User(this.nation)
+		this.user = await new User(this.nation)
 			.create(alias, passphrase)
 
-		// Connect user
-		await user.read()
+		// Manage alerts
+		await this.initialize()
 
 		// Follow founder
-		await user.follow(this.nation.founder)
+		await this.user.follow(this.nation.founder)
 
 		// Return keyPair, auth token, and address
-		return user.access
+		return this.user.access
 
 	}
 
@@ -246,13 +265,13 @@ export default class Session {
 			.withCredentials(alias, passphrase)
 
 		// Check if entity is already cached
-		user = await this.nation.unique(user)
+		this.user = await this.nation.unique(user)
 
 		// Connect user
-		await user.read()
+		await this.initialize()
 
 		// Return keyPair, auth token, and address
-		return user.access
+		return this.user.access
 
 	}
 
@@ -269,15 +288,37 @@ export default class Session {
 			.withEncryptedKeyPair(keyPair, passphrase)
 
 		// Check if entity is already cached
-		user = await this.nation.unique(user)
+		this.user = await this.nation.unique(user)
 
-		// Connect user
-		await user.read()
+		// Initialize session
+		await this.initialize()
 
 		// Return keyPair, auth token, and address
-		return user.access
+		return this.user.access
 
 	}
+
+
+	async initialize() {
+
+		// Connect user
+		await this.user.read()
+
+		// Create alerting function
+		let onAlert = alert => this.client.emit("alert", alert)
+
+		// Send current alerts
+		this.nation.database
+			.getAlertsFor(this.user.address)
+			.map(onAlert)
+
+		// Listen for new alerts
+		this.alertListener = this.nation.database
+			.onAlert(this.user.address, onAlert)
+
+	}
+
+
 
 
 
@@ -304,7 +345,22 @@ export default class Session {
 	}
 
 	async getNation({ task }) {
-		this.client.emit(task, { result: this.nation.fullname })
+		this.client.emit(task, { result: this.nation.clientSettings })
+	}
+
+
+	@task
+	async seen({ alerts }) {
+
+		// Log
+		this.log(`Flagging ${alerts.length} alerts as seen`)
+
+		// Flag alerts
+		this.nation.database.seenAlerts(...alerts)
+
+		// Return success
+		return true
+
 	}
 
 

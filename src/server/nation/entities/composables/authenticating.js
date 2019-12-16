@@ -49,7 +49,7 @@ export default Child => class Entity extends Child {
 		return this.keyStore.keyPair
 	}
 
-	get encryptedKeypair() {
+	get encryptedKeyPair() {
 		return this.keyStore.encrypted
 	}
 
@@ -60,7 +60,7 @@ export default Child => class Entity extends Child {
 	get access() {
 		return {
 			address: this.address,
-			keyPair: this.keyStore.encrypted,
+			keyPair: this.encryptedKeyPair,
 			auth: this.auth,
 			passphrase: this.passphrase
 		}

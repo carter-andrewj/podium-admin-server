@@ -74,8 +74,10 @@ export default class KeyStore extends Entity() {
 
 		// Add data to state
 		this.encryptor = passphrase
-		this.history = this.history
-			.set("init", fromJS({ keys: keyPair }))
+		this.history = this.history.set("init", {
+			keys: keyPair,
+			created: new Date().getTime()
+		})
 
 		// Return keystore
 		return this
@@ -92,11 +94,7 @@ export default class KeyStore extends Entity() {
 		if (this.history.size > 0) {
 
 			// Get current encrypted keypair
-			this.encrypted = this.history
-				.valueSeq()
-				.last()
-				.get("keys")
-				.toJS()
+			this.encrypted = this.latest["keys"]
 
 			// Decrypt and store keyPair
 			this.keyPair = await RadixKeyStore

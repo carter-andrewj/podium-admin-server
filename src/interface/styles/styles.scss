@@ -470,10 +470,22 @@ p {
 
 			}
 
+		}
+
+		.buttons {
+			position: absolute;
+			right: 0;
+			top: 0;
+
 			.button {
-				position: absolute;
-				right: 0;
-				top: 0;
+				display: inline-block;
+				@include fixed-size(
+					map-get($scale, "button-height"),
+					map-get($scale, "button-height")
+				);
+				margin: map-get($scale, "spacer");
+				text-align: center;
+				padding: 0;
 			}
 
 		}

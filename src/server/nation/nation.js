@@ -101,7 +101,7 @@ export default class Nation {
 			founder: (this.founder && this.founder.connected) ?
 				{
 					passphrase: this.founder.passphrase,
-					keyPair: this.founder.encryptedKeypair,
+					keyPair: this.founder.encryptedKeyPair,
 					address: this.founder.address
 				}
 				: null,
@@ -112,6 +112,8 @@ export default class Nation {
 					address: this.domain.address
 				}
 				: null,
+
+			population: this.constitution.population
 
 		}
 	}
@@ -141,6 +143,33 @@ export default class Nation {
 		return this.podium.mediaStore.in("current")
 	}
 
+
+	get clientSettings() {
+		return {
+
+			name: this.fullname,
+
+			founder: this.founder.address,
+			domain: this.domain.address,
+
+			media: `https://${this.media.bucket.name}/${this.media.path}`,
+
+		}
+	}
+
+
+	get constants() {
+		return {
+			regex: {
+				reference: /{\w+}/gi,
+				url: /(?:http[s]*:\/\/)?(?:www\.)?(?!ww*\.)[a-z][a-z0-9.\-/]*\.[a-z]{2}(?:[^\s]*[a-z0-9/]|(?=\W))/gi,
+				tag: /[@#\/][a-z0-9_-]+[a-z0-9_-]*?(?=\W|$)/gi,
+				mention: /[@][a-z0-9_-]+[a-z0-9_-]*?(?=\W|$)/gi,
+				topic: /[#][a-z0-9_-]+[a-z0-9_-]*?(?=\W|$)/gi,
+				domain: /[\/][a-z0-9_-]+[a-z0-9_-]*?(?=\W|$)/gi,
+			}
+		}
+	}
 
 
 
@@ -391,7 +420,7 @@ export default class Nation {
 
 			// Compose first founder post
 			this.founder
-				.author({ text: firstPost }, "POD")
+				.compose({ text: firstPost }, "POD")
 				.then(() => this.log("Authored First Post", 2))
 				.catch(this.error),
 
@@ -411,7 +440,7 @@ export default class Nation {
 
 		// Pre-populate nation
 		await this.population
-			.populate(this.constitution.population.prepopulate)
+			.populate(this.constitution.population)
 			.catch(this.error)
 
 
@@ -486,7 +515,7 @@ export default class Nation {
 
 		// Repopulate
 		await this.population
-			.repopulate()
+			.populate(this.constitution.population)
 			.catch(this.error)
 
 

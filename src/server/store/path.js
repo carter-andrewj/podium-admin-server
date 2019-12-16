@@ -15,7 +15,7 @@ export default class Path {
 		this.parent = parent
 
 		// State
-		this.path = `${this.parent.path || ""}${path || ""}`
+		this.pathname = path
 		this.children = Map()
 
 		// Methods
@@ -40,9 +40,14 @@ export default class Path {
 
 // GETTERS
 
+	get path() {
+		return `${this.parent.path || ""}${this.pathname || ""}`
+	}
+
 	get bucket() {
 		return this.parent.bucket
 	}
+
 
 
 
@@ -96,7 +101,7 @@ export default class Path {
 	setPath(path) {
 
 		// Set path
-		this.path = `${this.parent.path || ""}${path || ""}`
+		this.pathname = path
 
 		// Return path
 		return this

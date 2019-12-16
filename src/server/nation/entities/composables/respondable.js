@@ -1,5 +1,5 @@
 import Post from '../post';
-import PostIndex from '../indexes/postIndex';
+import ReplyIndex from '../indexes/replyIndex';
 
 import { assert } from '../utils';
 
@@ -45,7 +45,7 @@ export default Child => class Entity extends Child {
 	async withReplies() {
 
 		// Start reading from indexes
-		let index = await new PostIndex(this)
+		let index = await new ReplyIndex(this)
 			.fromSeed()
 			.read()
 			.catch(this.fail("Reading Replies"))

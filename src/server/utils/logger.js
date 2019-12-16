@@ -303,7 +303,7 @@ export default class Logger {
 
 	out(line, level=0) {
 
-		let result;
+		let result
 
 		// Write result
 		if (!this.level || level < this.level) {

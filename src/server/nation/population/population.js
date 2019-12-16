@@ -1,6 +1,7 @@
-
 import { Map } from 'immutable';
 
+import Twitter from './twitter';
+import Actor from './actor';
 
 
 export default class Population {
@@ -24,7 +25,6 @@ export default class Population {
 		this.disconnect = this.disconnect.bind(this)
 
 		this.populate = this.populate.bind(this)
-		this.repopulate = this.repopulate.bind(this)
 		this.depopulate = this.depopulate.bind(this)
 
 		this.addActor = this.addActor.bind(this)
@@ -37,7 +37,7 @@ export default class Population {
 // GETTERS
 
 	get store() {
-		return this.podium.nationStore.in("actors")
+		return this.nation.store.in("actors")
 	}
 
 
@@ -69,13 +69,27 @@ export default class Population {
 		await this.logger.clear()
 		this.log(`Connected Population to Nation: ${this.nation.fullname}`)
 
+		// Link to Twitter
+		this.twitter = await new Twitter(this).connect()
+
 		// Return population
 		return this
 
 	}
 
 
-	async populate(actors) {
+	async populate(population) {
+
+		let actors = [
+			...population.actors,
+			...population.mimics.accounts.map(m => { return {
+				mirror: m,
+				"activities": [{
+					"type": "mirror",
+					"interval": population.mimics.interval
+				}]
+			}})
+		]
 
 		// Log
 		this.log(`Populating ${actors.length} Actors`)
@@ -83,29 +97,8 @@ export default class Population {
 		// Create actors
 		await Promise.all(actors.map(this.addActor))
 
-		// Return population
-		return this
-
-	}
-
-
-	async repopulate() {
-
 		// Log
-		this.log("Rebuilding Population")
-
-		// List actors
-		await this.store.list()
-
-			// Read config store for each actor and rebuild
-			.then(actors => Promise.all(actors.map(a =>
-				this.store
-					.read(a)
-					.then(this.addActor)
-			)))
-
-			// Handle errors
-			.catch(this.error)
+		this.log("Population Complete")
 
 		// Return population
 		return this
@@ -150,12 +143,15 @@ export default class Population {
 
 
 
+
+
 // ACTORS
 
 	async addActor(actorConfig) {
 
 		// Log
-		this.log(`Creating Actor '@${actorConfig.alias}'`, 2)
+		let name = actorConfig.alias || actorConfig.mirror
+		this.log(`Creating Actor '@${name}'`, 2)
 
 		// Create actor
 		let actor = await new Actor(this).configure(actorConfig)

@@ -1,7 +1,7 @@
 import Post from '../post';
 import PostIndex from '../indexes/postIndex';
 
-import { assert } from '../utils';
+import { assert, buffer } from '../utils';
 
 
 
@@ -19,7 +19,7 @@ export default Child => class Entity extends Child {
 		this.withPosts = this.withPosts.bind(this)
 
 		this.onPost = this.onPost.bind(this)
-		this.author = this.author.bind(this)
+		this.compose = this.compose.bind(this)
 
 		// Traits
 		this.traits = this.traits.add("Posting")
@@ -29,7 +29,7 @@ export default Child => class Entity extends Child {
 
 		// Actions
 		this.actions = this.actions
-			.set("Author", this.author)
+			.set("Compose", this.compose)
 
 	}
 
@@ -91,16 +91,17 @@ export default Child => class Entity extends Child {
 // ACTIONS
 
 	@assert("Complete", "Authenticated")
-	async author(content, token) {
+	@buffer
+	async compose(content, token) {
 
 		// Create reply
-		// (The new post knows it is a reply from the context
+		// (The new post knows if it is a reply from the context
 		//  provided via -this-).
 		let post = new Post(this)
 
 		// Write reply
 		await post
-			.author(content, token)
+			.compose(content, token)
 			.catch(this.fail("Writing Post", content, token))
 
 		// Return post

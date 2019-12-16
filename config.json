@@ -39,6 +39,10 @@
 								}
 							}
 						}
+					},
+					"credentials": {
+						"path": "credentials/",
+						"type": "data"
 					}
 				}
 			},

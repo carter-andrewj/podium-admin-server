@@ -4,6 +4,8 @@ import { RadixAccountSystem } from 'radixdlt';
 
 import { fromJS, List, Map, Set, OrderedMap } from 'immutable';
 
+import { getEntity } from '../entities';
+
 import { assert, cached } from '../utils';
 
 
@@ -105,6 +107,10 @@ class BaseEntity {
 		this.lastState = null
 		this.atoms = Set()
 		this.history = OrderedMap()
+
+		// Buffering method calls
+		this.buffering = Map()
+		this.buffered = Map()
 
 		// Clients
 		this.clients = Map()
@@ -306,14 +312,26 @@ class BaseEntity {
 
 			// Attribute entities belonging to this entity
 			attributes: this.attributes
+
+				// Ignore omitted/disconnected entities
+				.filter(entity => entity.get("entity") &&
+					entity.get("entity").connected)
+
+				// Send entity type and address
 				.map((entity, id) => { return {
-					type: id,
+					type: entity.get("entity").name,
 					address: entity.get("entity").address
 				}})
 				.toJS()
 
 		}
 	}
+
+	get latest() {
+		return this.timeline.valueSeq().last()
+	}
+
+
 
 
 
@@ -332,6 +350,9 @@ class BaseEntity {
 	// Error handler
 	fail(context, ...args) {
 		return error => {
+
+			// Convert to error object, if required
+			if (!(error instanceof Error)) error = new Error(error)
 
 			// Report error, if required
 			if (!error.reported) {
@@ -634,6 +655,11 @@ class BaseEntity {
 
 // READ LEDGER
 
+	get timeline() {
+		return this.history.sort(this.sort)
+	}
+
+
 	async processAtomUpdate(update) {
 
 		// Unpack update
@@ -700,7 +726,7 @@ class BaseEntity {
 					// Add atom to history
 					this.lastState = this.state
 					this.history = this.history
-						.set(atomID, fromJS(data))
+						.set(atomID, data)
 						.sort(this.sort)
 
 					// Update state
@@ -768,8 +794,7 @@ class BaseEntity {
 		// Map through required accounts
 		await this.connect()
 
-			// Handle result (which may be a cached verison
-			// of this entity)
+			// Handle result
 			.then(() => Promise.all(this.attributes
 				.keySeq()
 				.filter(k => required.size === 0 ||
@@ -794,6 +819,10 @@ class BaseEntity {
 
 
 	async readWithout(...args) {
+		// NOTE: readWithout called with args will read from
+		// every attribute account except for the specified
+		// args. HOWEVER, readWithout called with no args
+		// is interpreted as read-without-anything.
 		if (args.length === 0) {
 			return this.connect()
 		} else {
@@ -1023,9 +1052,28 @@ class BaseEntity {
 		// Execute action
 		} else {
 
+			// Populate args
+			let inputs = await Promise.all(args.map(async arg => {
+
+				// Ignore non-entity arguments
+				if (!arg || !arg.isEntity) return arg
+
+				// Get entity type
+				let Entity = getEntity(arg.type)
+				
+				// Make entity
+				let input = await new Entity(this.nation)
+					.fromAddress(arg.address)
+					.read()
+
+				// Return entity
+				return input
+
+			}))
+
 			// Call method
 			let error
-			let output = await method(...args)
+			let output = await method(...inputs)
 				.catch(this.fail("Proxy Action", method, args))
 
 			// Return
@@ -1330,7 +1378,7 @@ class BaseEntity {
 
 // WRITE TO LEDGER
 
-	@assert("Account", "Authenticated")
+	@assert("Account")
 	async write(data) {
 
 		// Log

@@ -27,6 +27,9 @@ export default class Profile extends Entity(Merged) {
 		// Generate profile picture on change
 		this.onChange(this.checkPicture)
 
+		// Attributes
+		this.attribute("Picture", this.withPicture)
+
 		// Actions
 		this.actions = this.actions
 			.set("Update", this.update)
@@ -91,11 +94,6 @@ export default class Profile extends Entity(Merged) {
 
 		// If changed, update attribute
 		if (picture && picture !== lastPicture) {
-
-			// Attribute picture, if required
-			if (!this.attributes.get("Picture")) {
-				this.attribute("Picture", this.withPicture)
-			}
 
 			// Read picture
 			await this.with("Picture")

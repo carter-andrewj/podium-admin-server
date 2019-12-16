@@ -12,6 +12,7 @@ import FollowingIndex from './indexes/followingIndex';
 import OwnableIndex from './indexes/ownableIndex';
 import TokenIndex from './indexes/tokenIndex';
 import PostIndex from './indexes/postIndex';
+import ReplyIndex from './indexes/replyIndex';
 
 import Entity from './composables/entity';
 
@@ -20,6 +21,7 @@ function getEntity(type) {
 	switch (type.toLowerCase()) {
 
 		case "user": return User
+		case "profile": return Profile
 		case "domain": return Domain
 		case "keystore": return KeyStore
 		case "token": return Token
@@ -31,6 +33,7 @@ function getEntity(type) {
 		case "following": return FollowingIndex
 		case "ownables": return OwnableIndex
 		case "posts": return PostIndex
+		case "replies": return ReplyIndex
 		case "tokens": return TokenIndex
 
 		default: throw new Error(`Unknown Entity Type: ${type}`)
