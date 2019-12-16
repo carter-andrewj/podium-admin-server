@@ -1,6 +1,6 @@
 import { Map } from 'immutable';
 
-import Path from './Path';
+import Path from './path';
 
 
 
