@@ -33,7 +33,8 @@ const config = {
 				}]
 			}
 		],
-	}
+	},
+	target: "node"
 };
 
 module.exports = config;
