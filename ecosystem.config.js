@@ -3,7 +3,7 @@ module.exports = {
 	apps: [{
 		name: 'Podium',
 		script: 'npm',
-		args: 'start-production'
+		args: 'run start-production'
 	}],
 
 	deploy: {
