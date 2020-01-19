@@ -78,7 +78,7 @@ export default class API {
 				this.server = http
 					.Server(this.nation.podium.server)
 					.listen(this.config.port, () => {
-						this.log("Websocket Server Online", 1)
+						this.log(`Websocket Server Running on Port ${this.config.port}`, 1)
 						resolve()
 					})
 			})

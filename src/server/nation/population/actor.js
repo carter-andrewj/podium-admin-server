@@ -402,9 +402,15 @@ export default class Actor {
 
 			// Strip out short form links and replace with long form
 			let links = tweet.text.match(url) || []
-			let longLinks = links.map(link => tweet.entities.urls
-				.filter(l => l.url === link)[0].expanded_url
-			)
+			let longLinks = links
+				.map(link => {
+					let linkSet = tweet.entities.urls
+						.filter(l => l.url === link)
+					if (linkSet.length > 0) {
+						return linkSet[0].expanded_url
+					}
+				})
+				.filter(x => x)
 
 			// Reconstruct text
 			let text = List(tweet.text.split(url))
