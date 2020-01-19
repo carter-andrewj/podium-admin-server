@@ -1,7 +1,7 @@
 module.exports = {
 
 	apps: [{
-		name: 'podium-admin-server',
+		name: 'Podium',
 		script: 'npm',
 		args: 'start-production'
 	}],
