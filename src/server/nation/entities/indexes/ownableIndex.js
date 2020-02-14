@@ -21,6 +21,9 @@ export default class OwnableIndex extends Entity(Indexed) {
 		// Account
 		this.name = "OwnableIndex"
 
+		// Register exceptions
+		this.registerException(20, "ownable", type => `Unknown Ownable Type: '${type}'`)
+
 	}
 
 
@@ -28,9 +31,7 @@ export default class OwnableIndex extends Entity(Indexed) {
 	retreive(type, address) {
 
 		// Ensure index contains address
-		if (!this.has(address)) {
-			throw new Error("Index Error: Address not found")
-		}
+		if (!this.has(address)) throw this.exception[13]()
 
 		// Check type of ownable
 		switch (type) {
@@ -44,8 +45,7 @@ export default class OwnableIndex extends Entity(Indexed) {
 				return new Topic(this.master).fromAddress(address)
 
 			// Throw error for unknown ownable types
-			default:
-				throw new Error(`Unknown Ownable Type: '${type}'`)
+			default: throw this.exception[20](type)
 
 		}
 

@@ -46,6 +46,9 @@ export default class Post extends Entity(
 			.set("Amend", this.amend)
 			.set("Retract", this.retract)
 
+		// Register Exceptions
+		this.registerException(21, "posting", n => `Cannot create post ${n}. Author has already posted ${this.number} times.`)
+
 	}
 
 
@@ -155,6 +158,9 @@ export default class Post extends Entity(
 	@assert("Blank", "Authenticated")
 	async compose(content, tokenSymbol) {
 
+		// Log
+		this.log("Creating Post", 3)
+
 		// Unpack content
 		const { text, media } = content
 
@@ -162,8 +168,9 @@ export default class Post extends Entity(
 		let chars = ""
 
 		// Store text
+		let number = this.master.postCount + 1
 		this.record = fromJS({
-			number: this.master.postCount + 1,
+			number,
 			text: text,
 		})
 
@@ -173,9 +180,7 @@ export default class Post extends Entity(
 			.catch(this.fail("Reading Post", this.number))
 
 		// Make sure post does not already exist
-		if (!this.empty) {
-			throw new Error(`${this.master.label} has already posted ${this.number} times`)
-		}
+		if (!this.empty) throw this.exception[21](number)
 
 		// Markup text
 		const { url, mention, topic, domain } = this.nation.constants.regex
@@ -201,6 +206,11 @@ export default class Post extends Entity(
 			text: this.characters,
 			...this.record.get("references", Map()).toJS()
 		})
+
+		// Ensure user has the required balance
+		let balance = this.master.balance[tokenSymbol]
+		if (balance < cost)
+			throw this.exception[25](balance, cost, tokenSymbol)
 
 		// Construct parentage data
 		let reply = false
@@ -241,11 +251,23 @@ export default class Post extends Entity(
 				// Add to author's index
 				this.master.posts.add(this),
 
-				// Pay for post
-				//this.master.transact(cost, token, this),
+				// Seed post reactions
+				this.reactions.add(this, {
+					bias: this.master.bias,
+					value: 1
+				}),
+
+				// Pay for post, if required
+				this.master.role !== "bot" ?
+					this.master.transact(cost, token, this, { for: "post" })
+					: null,
 
 				// Add to parent replies
-				reply ? this.parent.replies.add(this) : null
+				reply ?
+					this.parent
+						.replies
+						.add(this, undefined, this.master)
+					: null,
 
 			])
 			.catch(this.fail("Writing Post", this.record.toJS()))

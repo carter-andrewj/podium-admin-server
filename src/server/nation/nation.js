@@ -193,11 +193,20 @@ export default class Nation {
 	}
 
 	log(line, level=0) {
-		this.logger.out(line, level)
+		try {
+			this.logger.out(line, level)
+		} catch {
+			console.log("FAILED TO LOG: ", line)
+		}
 	}
 
 	error(error, context) {
-		this.logger.error(error, context)
+		try {
+			this.logger.error(error, context)
+		} catch {
+			console.log("FAILED TO LOG ERROR: ", context)
+			console.error(error)
+		}
 	}
 
 	eventLog(line, level=0) {

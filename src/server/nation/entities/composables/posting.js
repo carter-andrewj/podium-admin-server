@@ -94,7 +94,7 @@ export default Child => class Entity extends Child {
 	@buffer
 	async compose(content, token) {
 
-		// Create reply
+		// Create post
 		// (The new post knows if it is a reply from the context
 		//  provided via -this-).
 		let post = new Post(this)

@@ -115,6 +115,9 @@ class BaseEntity {
 		// Clients
 		this.clients = Map()
 
+		// Errors
+		this.exceptions = Map()
+
 		// Current listeners
 		this.listeners = Map()
 
@@ -122,6 +125,7 @@ class BaseEntity {
 		this.logline = this.logline.bind(this)
 		this.error = this.error.bind(this)
 		this.fail = this.fail.bind(this)
+		this.registerException = this.registerException.bind(this)
 
 		this.is = this.is.bind(this)
 		this.fromAddress = this.fromAddress.bind(this)
@@ -156,6 +160,9 @@ class BaseEntity {
 		this.write = this.write.bind(this)
 
 		// Helpers
+		this.beforeCreate = this.beforeCreate.bind(this)
+		this.onCreate = this.onCreate.bind(this)
+
 		this.beforeConnect = this.beforeConnect.bind(this)
 		this.onConnect = this.onConnect.bind(this)
 		this.beforeUpdate = this.beforeUpdate.bind(this)
@@ -188,7 +195,22 @@ class BaseEntity {
 		this.beforeNextDisconnect = this.beforeNextDisconnect.bind(this)
 		this.onNextDisconnect = this.onNextDisconnect.bind(this)
 
+		// Register universal exceptions
+		this.registerException(0, "entity", "No override found for default <seed> method.")
+		this.registerException(1, "entity", "No override found for default <addAtom> method.")
+		this.registerException(2, "entity", "No override found for default <deleteAtom> method.")
+		this.registerException(3, "entity", "Entity Name Not Found. " +
+			"Composed Entities must specify a 'name' variable in their" +
+			"constructor to tag ledger records and act as an identifier."
+		)
+		this.registerException(4, "entity", id => `Unknown Attribute '${id}'`)
+
+		this.registerException(5, "client", action => `Unknown Action: ${action}`)
+		this.registerException(6, "client", "Invalid Auth Token")
+		
+
 	}
+
 
 
 
@@ -197,7 +219,7 @@ class BaseEntity {
 
 	// Generates a seed string for account creation
 	get seed() {
-		throw new Error("No override for default <seed> method.")
+		throw this.exception[0]()
 	}
 
 	// (OPTIONAL) Shorthand for referring to account in logs, etc...
@@ -219,12 +241,12 @@ class BaseEntity {
 
 	// Process an atom with new data
 	async addAtom(data) {
-		throw new Error("No override for default <addAtom> method.")
+		throw this.exception[1]()
 	}
 
 	// Process an atom removing data
 	async deleteAtom(data) {
-		throw new Error("No override for default <deleteAtom> method.")
+		throw this.exception[2]()
 	}
 
 	// (OPTIONAL) Change how the history object is ordered
@@ -381,14 +403,53 @@ class BaseEntity {
 		}
 	}
 
+	// Exception register
+	registerException(code, type, message) {
 
+		// Ensure exception codes are unique
+		if (this.exceptions.get(code)) throw new Error(
+			`Exception Code >${code}< already exists. ` +
+			`Attempting to register '${type.toUpperCase()} ERROR'.`
+		)
+
+		// Build error object
+		let error = (...args) => {
+
+			// Make error message prefix
+			let prefix = `${type.toUpperCase()} ERROR: `
+
+			// Build error message
+			let suffix
+			if (typeof message !== "string") {
+				suffix = message(args)
+			} else {
+				suffix = message
+			}
+
+			// Create error
+			let error = new Error(prefix + suffix)
+			error.code = code
+
+			// Return error
+			return error
+
+		}
+
+		// Store exception
+		this.exceptions = this.exceptions.set(code, error)
+
+	}
+
+	// Exception retreival
+	get exception() {
+		return this.exceptions.toJS()
+	}
 
 
 
 
 // CONNECTION
 
-	@assert("Blank")
 	@cached
 	fromAddress(address) {
 
@@ -401,7 +462,6 @@ class BaseEntity {
 	}
 
 
-	@assert("Blank")
 	@cached
 	fromSeed() {
 
@@ -415,15 +475,10 @@ class BaseEntity {
 
 
 	@assert("Account")
-	async connect() {
+	async connect(silent = false) {
 
 		// Make sure account name has been set
-		if (!this.name) {
-			throw new Error("Entity Name Not Found. " +
-				"Composed Entities must specify a 'name' " +
-				"variable to tag ledger records and act as " +
-				"an identifier.")
-		}
+		if (!this.name) throw this.exception[3]()
 
 
 		// Wait for promise, if still disconnecting
@@ -464,7 +519,7 @@ class BaseEntity {
 				})
 
 				// Fire event
-				await this.dispatch("willConnect")
+				if (!silent) await this.dispatch("willConnect")
 					.catch(this.fail("Dispatching willConnect"))
 
 				// Add account system
@@ -501,7 +556,7 @@ class BaseEntity {
 								this.complete = true
 
 								// Dispatch event
-								await this.dispatch("onComplete")
+								if (!silent) await this.dispatch("onComplete")
 									.catch(this.fail("Dispatching onComplete"))
 							
 							// Otherwise, clear flag and wait
@@ -516,13 +571,13 @@ class BaseEntity {
 										if (!this.complete) {
 
 											// Log completion
-											this.log("Up-to-Date with Ledger", 4)
+											this.log("Up-to-Date with Ledger (auto)", 4)
 
 											// Set complete flag
 											this.complete = true
 
 											// Dispatch event
-											await this.dispatch("onComplete")
+											if (!silent) await this.dispatch("onComplete")
 												.catch(this.fail("Dispatching onComplete"))
 									
 										}
@@ -545,7 +600,7 @@ class BaseEntity {
 
 						// TODO - REMOVE THIS WHEN RADIX FIX ISSYNCED
 						this.complete = true
-						await this.dispatch("onComplete")
+						if (!silent) await this.dispatch("onComplete")
 							.catch(this.fail("Dispatching onComplete"))
 						this.log("Up-to-Date with Ledger (timeout)", 4)
 
@@ -574,7 +629,7 @@ class BaseEntity {
 					.catch(this.fail("Opening Account Connection"))
 
 				// Fire event
-				await this.dispatch("onConnect")
+				if (!silent) await this.dispatch("onConnect")
 					.catch(this.fail("Dispatching onConnect"))
 
 			})
@@ -588,7 +643,7 @@ class BaseEntity {
 	}
 
 
-	async disconnect() {
+	async disconnect(silent = false) {
 
 		// Ignore if not connected
 		if (!this.connected) return this
@@ -606,7 +661,7 @@ class BaseEntity {
 				this.log("Disconnecting", 3)
 
 				// Fire event
-				await this.dispatch("willDisconnect")
+				if (!silent) await this.dispatch("willDisconnect")
 					.catch(this.fail("Dispatching willDisconnect"))
 
 				// Remove completion listener
@@ -628,7 +683,7 @@ class BaseEntity {
 				this.connected = false
 
 				// Fire event
-				await this.dispatch("onDisconnect")
+				if (!silent) await this.dispatch("onDisconnect")
 					.catch(this.fail("Dispatching onDisconnect"))
 
 				// Remove all listeners
@@ -848,6 +903,9 @@ class BaseEntity {
 		// Skip if dependant already exists
 		if (!this.attributes.getIn([id, "entity"])) {
 
+			// Ignore if attribute is already connected
+			if (this.attributes.getIn([id, "entity"])) return
+
 			// Log
 			this.log(`Connecting Attribute: ${id}`, 3)
 
@@ -855,9 +913,7 @@ class BaseEntity {
 			let connector = this.attributes.getIn([id, "connector"])
 
 			// Ensure connector exists
-			if (!connector) {
-				throw new Error(`Unknown Attribute '${id}'`)
-			}
+			if (!connector) throw this.exception[4](id)
 
 			// Generate attribute entity
 			let attribute = await connector()
@@ -1042,44 +1098,37 @@ class BaseEntity {
 		let method = this.actions.get(action)
 
 		// Check if method exists
-		if (!method) {
-			throw new Error(`Unknown Action: ${action}`)
+		if (!method) throw this.exception[5](action)
 
 		// Check the auth token is valid
-		} else if (auth !== this.master.auth) {
-			throw new Error("Invalid Auth Token")
+		if (auth !== this.master.auth) throw this.exception[6]()
 
-		// Execute action
-		} else {
+		// Populate args
+		let inputs = await Promise.all(args.map(async arg => {
 
-			// Populate args
-			let inputs = await Promise.all(args.map(async arg => {
+			// Ignore non-entity arguments
+			if (!arg || !arg.isEntity) return arg
 
-				// Ignore non-entity arguments
-				if (!arg || !arg.isEntity) return arg
+			// Get entity type
+			let Entity = getEntity(arg.type)
+			
+			// Make entity
+			let input = await new Entity(this.nation)
+				.fromAddress(arg.address)
+				.read()
 
-				// Get entity type
-				let Entity = getEntity(arg.type)
-				
-				// Make entity
-				let input = await new Entity(this.nation)
-					.fromAddress(arg.address)
-					.read()
+			// Return entity
+			return input
 
-				// Return entity
-				return input
+		}))
 
-			}))
+		// Call method
+		let error
+		let output = await method(...inputs)
+			.catch(this.fail("Proxy Action", method, args))
 
-			// Call method
-			let error
-			let output = await method(...inputs)
-				.catch(this.fail("Proxy Action", method, args))
-
-			// Return
-			return output
-
-		}
+		// Return
+		return output
 
 	}
 
@@ -1243,6 +1292,16 @@ class BaseEntity {
 	}
 
 
+	beforeCreate(callback, onError) {
+		return this.addListener("willCreate", callback, onError)
+	}
+
+	onCreate(callback, onError) {
+		return this.addListener("didCreate", callback, onError)
+	}
+
+
+
 	beforeConnect(callback, onError) {
 		return this.addListener("willConnect", callback, onError)
 	}
@@ -1379,32 +1438,43 @@ class BaseEntity {
 // WRITE TO LEDGER
 
 	@assert("Account")
-	async write(data) {
+	async write(data, master = this.master) {
 
 		// Log
 		this.log(`Writing to ledger ${JSON.stringify(data)}`, 3)
+
+		// Check if entity is empty
+		let first = false
+		if (this.empty) {
+			first = true
+			await this.dispatch("willCreate", data)
+				.catch(this.fail("Dispatching willCreate", data))
+		}
 
 		// Dispatch event
 		await this.dispatch("willWrite", data)
 			.catch(this.fail("Dispatching willWrite", data))
 
 		// Write data
-		await this.master
+		await master
 			.commit(this.account, {
 				record: this.name,
 				...data
 			})
 			.catch(this.fail("Writing to Ledger", data))
 
+		// Dispatch first-write event
+		if (first) await this.dispatch("didCreate", data)
+			.catch(this.fail("Dispatching didCreate", data))
+
 		// Dispatch event
 		await this.dispatch("didWrite", data)
 			.catch(this.fail("Dispatching didWrite", data))
 
-		// Return account
+		// Otherwise, return the entity
 		return this
 
 	}
-
 
 
 

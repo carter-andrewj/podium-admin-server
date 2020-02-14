@@ -69,7 +69,7 @@ export default Child => class Entity extends Child {
 
 			// Get token data
 			const address = eventData.address
-			const symbol = eventData.support.symbol
+			const symbol = eventData.meta.symbol
 
 			// Add as a dependency
 			this.attribute(symbol, () => this.withToken(address))

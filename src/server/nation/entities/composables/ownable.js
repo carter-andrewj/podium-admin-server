@@ -33,6 +33,11 @@ export default Child => class Entity extends Child {
 			.set("Claim", this.claim)
 			.set("Transfer", this.transfer)
 
+		// Register Errors
+		this.registerException(17, "ownable", () =>`${this.name} is already Owned. Cannot Claim.`)
+		this.registerException(18, "ownable", entity => `Cannot transfer to Entity of type '${recipient.name}'`)
+		this.registerException(19, "ownable", "Transfering Account is not the Owner")
+
 	}
 
 
@@ -74,10 +79,7 @@ export default Child => class Entity extends Child {
 	fromIdentifier(id) {
 
 		// Pre-emptively initial data
-		this.record = fromJS({
-			id: id,
-			owner: this.master.account ? this.master.address : undefined
-		})
+		this.record = fromJS({ id: id })
 
 		// Create and return ownable
 		return this.fromSeed()
@@ -88,9 +90,15 @@ export default Child => class Entity extends Child {
 
 // WRITE
 
-	@assert("Blank", "Authenticated")
+	@assert("Account", "Authenticated")
 	async claim() {
 
+		// Load topic, if not already up to date
+		if (!this.complete) await this.read()
+
+		// Reject if ownable is already owned
+		if (this.owned) throw this.exception[17]()
+		
 		// Create ownable
 		await Promise
 			.all([
@@ -115,33 +123,23 @@ export default Child => class Entity extends Child {
 	}
 
 
-	@assert("Complete", "Authenticated")
+	@assert("Authenticated")
 	async transfer(recipient) {
 
 		// Ensure new owner can receive ownable
-		if (!recipient.is("Owning")) {
-			throw new Error("Ownables can only be transfered to Owning Entities")
-		}
+		if (!recipient.is("Owning")) throw this.exception[18](recipient)
 
-		// Ensure master's index is connected
-		if (!this.master.owned.connected) {
-			throw new Error("OWNABLE ERROR: Index not connected.")
-		}
+		// Ignore if recipient is the current owner
+		if (this.master.address === recipient.address) return this
+
+		// Ensure transfering user is up-to-date
+		if (!this.master.owned.complete) await this.master.read("owned")
 
 		// Ensure recipient's index is connected
-		if (!recipient.owned.connected) {
-			throw new Error("OWNABLE ERROR: Index not connected.")
-		}
+		if (!recipient.owned.connected) await recipient.read("owned")
 
 		// Ensure transferer is current owner
-		if (!this.mine) {
-			throw new Error("Cannot tranfer Ownables you do not own")
-		}
-
-		// Ensure recipient is not current owner
-		if (this.master.address === recipient.address) {
-			throw new Error("Cannot transfer Ownables to yourself")
-		}
+		if (!this.mine) throw this.exception[19]()
 
 		// Transfer ownership
 		await Promise

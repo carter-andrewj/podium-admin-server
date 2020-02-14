@@ -160,12 +160,21 @@ export default class Ledger {
 
 // LOGGING
 
-	log(line, level) {
-		this.logger.out(line, level)
+	log(line, level=0) {
+		try {
+			this.logger.out(line, level)
+		} catch {
+			console.log("FAILED TO LOG: ", line)
+		}
 	}
 
 	error(error, context) {
-		this.logger.error(error, context)
+		try {
+			this.logger.error(error, context)
+		} catch {
+			console.log("FAILED TO LOG ERROR: ", context)
+			console.error(error)
+		}
 	}
 
 
@@ -287,14 +296,14 @@ export default class Ledger {
 	}
 
 
-	storeTransaction(identity, recipient, token, amount) {
+	storeTransaction(identity, recipient, token, amount, meta) {
 		return new Promise((resolve, reject) => {
 
 			// Generate payload if
 			const id = `TXN-${uuid().replace(/\-/g, "").substring(0, 6)}`
 
 			// Log
-			this.log(`${id} => Transfering ${amount}${token.name} ` +
+			this.log(`${id} => Transfering ${amount}${token.symbol} ` +
 					 `from ${identity.address} ` +
 					 `to ${recipient.address}`, 1)
 
@@ -302,9 +311,10 @@ export default class Ledger {
 			RadixTransactionBuilder
 				.createTransferAtom(
 					identity.account,
-					recipient,
-					token,
-					amount
+					recipient.account,
+					token.reference,
+					amount,
+					JSON.stringify(meta)
 				)
 				.signAndSubmit(identity)
 				.subscribe({

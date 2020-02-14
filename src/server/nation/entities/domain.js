@@ -77,10 +77,8 @@ export default class Domain extends Entity(
 			.read()
 			.catch(this.fail("Reading Domain", id))
 
-		// Ensure domain does not already exist
-		if (!this.empty) {
-			throw new Error(`Domain Error: '${this.label}' is not Available`)
-		}
+		// Attempt to claim domain
+		await this.claim()
 
 		// Log
 		this.log("Building Domain", 3)
@@ -95,10 +93,6 @@ export default class Domain extends Entity(
 				),
 
 				// Create articles
-
-				// Store domain data
-				this.claim()
-					.catch(this.fail("Writing Domain Record", id)),
 
 				// Add to database
 				this.nation.database

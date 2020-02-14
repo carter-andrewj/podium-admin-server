@@ -240,3 +240,47 @@ export function buffer(subject) {
 
 }
 
+
+
+
+
+export async function fetchMetadata(url) {
+
+	// Fetch url
+	let response = await fetch(url, { redirect: "follow" })
+
+	// Make metadata object
+	let meta = {}
+
+	console.log("response", response)
+
+	// Unpack response
+	let text = await response.text()
+
+	// Sanitize html string
+	let html = text.replace(/\&amp;/g, "&")
+
+	// Extract HTML title
+	let title = html.match(/((\<title>).+?(?=\<\/title\>))/gi)
+	if (title) meta.title = HTML.decode(title[0].substring(7))
+
+	// Extract HTML favicon
+
+	// Extract HTML meta tags
+	let tags = html.match(/((\<meta ).+?(?=\>))/gi)
+	if (tags.length > 0) {
+		tags.map(tag => {
+			let name = tag.match(/(( name\=\").+?(?=\"))/gi)
+			let prop = tag.match(/(( property\=\").+?(?=\"))/gi)
+			if (name || prop) {
+				key = name ? name[0].substring(7) : prop[0].substring(11)
+				let content = tag.match(/(( content\=\").+?(?=\"))/gi)
+				if (content) meta[key] = HTML.decode(content[0].substring(10))
+			}
+		})
+	}
+
+	// Return metadata
+	return meta
+
+}

@@ -36,6 +36,20 @@ export default Child => class Entity extends Child {
 			.set("Follow", this.follow)
 			.set("Unfollow", this.unfollow)
 
+		// Register Exceptions
+		this.registerException(8, "following",
+			subject => `Subject '${subject.label}' is not Followable`
+		)
+		this.registerException(9, "following",
+			subject => `Subject '${subject.label}' is not Connected`
+		)
+		this.registerException(10, "following",
+			subject => `Already following '${subject.label}'. Cannot follow.`
+		)
+		this.registerException(11, "following",
+			subject => `Not following '${subject.label}'. Cannot unfollow.`
+		)
+
 	}
 
 
@@ -98,23 +112,16 @@ export default Child => class Entity extends Child {
 
 	@assert("Connected", "Authenticated")
 	async follow(subject) {
-		
+
 		// Ensure the subject is followable
-		if (!subject.is("Followable")) {
-			throw new Error(`FOLLOWING ERROR: Subject '${subject.label}' ` +
-							`is not Followable`)
-		}
+		if (!subject.is("Followable")) throw this.exception[8](subject)
 
 		// Ensure the subject's follower index is connected
-		if (!subject.followingIndex.connected) {
-			throw new Error(`FOLLOWING ERROR: Subject '${subject.label}' ` +
-							`is not Connected`)
-		}
+		if (!subject.followingIndex.connected) throw this.exception[9](subject)
 
 		// Ensure master is not already following the subject
-		if (this.isFollowing(subject)) {
-			throw new Error(`FOLLOWING ERROR: Already following '${subject.label}'`)
-		}
+		if (this.isFollowing(subject)) throw this.exception[10](subject)
+
 
 		// Write to ledger
 		await Promise
@@ -142,16 +149,11 @@ export default Child => class Entity extends Child {
 	async unfollow(subject) {
 
 		// Ensure the subject's follower index is connected
-		if (!subject.followingIndex.connected) {
-			throw new Error(`FOLLOWING ERROR: Subject '${subject.label}' ` +
-							`is not Connected`)
-		}
+		if (!subject.followingIndex.connected) throw this.exception[9](subject)
 
 		// Ensure master is following the subject
-		if (!this.isFollowing(subject)) {
-			throw new Error(`Following Error: Attempted to unfollow '${subject.label}' ` +
-							`- not in Following Index`)
-		}
+		if (!this.isFollowing(subject)) throw this.exception[11](subject)
+
 
 		// Write to ledger
 		await Promise

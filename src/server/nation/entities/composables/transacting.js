@@ -1,4 +1,4 @@
-import { Map } from 'immutable';
+import { Map, List } from 'immutable';
 
 import Token from '../token';
 
@@ -23,6 +23,7 @@ export default Child => class Entity extends Child {
 		this.withTransactions = this.withTransactions.bind(this)
 
 		this.transact = this.transact.bind(this)
+		this.faucet = this.faucet.bind(this)
 
 		// Traits
 		this.traits = this.traits.add("Transacting")
@@ -30,10 +31,14 @@ export default Child => class Entity extends Child {
 		// Actions
 		this.actions = this.actions
 			.set("Transact", this.transact)
+			.set("Faucet", this.faucet)
 
 		// Automatically subscribe to transaction
 		/// system before connecting to account.
 		this.beforeConnect(this.withTransactions)
+
+		// Register exceptions
+		this.registerException(25, (b, c, t) => `Insufficient funds (${b}${t}) for transaction (${c}${t})`)
 
 	}
 
@@ -41,6 +46,13 @@ export default Child => class Entity extends Child {
 
 
 // GETTERS
+
+	get status() {
+		return {
+			...super.status,
+			wallet: this.wallet.toJS()
+		}
+	}
 
 	@assert("Complete")
 	balance(symbol) {
@@ -64,41 +76,38 @@ export default Child => class Entity extends Child {
 		// Log
 		this.log("Indexing Transactions", 3)
 
-		// Subscribe for balance updates
-		this.account.transferSystem
-			.getTokenUnitsBalanceUpdates()
-			.subscribe(balance => this.domain.tokens
-				.map((token, symbol) => {
+		// Subscribe for transactions
+		this.account.transferSystem.transactionSubject
+			.subscribe(({ transaction }) => {
 
-					// Get current and new balances
-					let last = this.wallet.get(symbol)
-					let next = balance[symbol]
+				// Unpack trasaction
+				let { tokenUnitsBalance, participants, timestamp, message } = transaction
+				let [ _, issuer, symbol ] = Map(tokenUnitsBalance).keySeq().first().split("/")
+				let value = Number(Map(tokenUnitsBalance).valueSeq().first())
+				let partner = Map(participants).keySeq().first()
 
-					// Check if balance has changed
-					if (!last || last !== next) {
+				// Add to wallet
+				this.wallet = this.wallet.update(symbol, transactions => {
 
-						// Update balance
-						this.wallet = this.wallet.set(symbol, balance[symbol])
+					// Initialize transaction index, if required
+					if (!transactions) transactions = List()
 
-						// Dispatch events
-						let eventData = {
-							token: token.symbol,
-							last,
-							next
-						}
-						this.dispatch("onBalanceChange", eventData)
-						if (last > next) {
-							this.dispatch("onBalanceLoss", eventData)
-						} else {
-							this.dispatch("onBalanceGain", eventData)
-						}
-
-					}
+					// Add transaction and return
+					return transactions.push({
+						type: !partner ? "issued" : value < 0 ? "sent" : "received",
+						from: value > 0 ? partner : undefined,
+						to: value < 0 ? partner : undefined,
+						timestamp,
+						value,
+						metadata: (message && message.length > 0) ?
+							JSON.parse(message)
+							: {},
+					})
 
 				})
-			)
 
-		// Return entity
+			})
+
 		return this
 
 	}
@@ -109,12 +118,41 @@ export default Child => class Entity extends Child {
 // ACTIONS
 
 	@assert("Account", "Authenticated")
-	async transact(amount, token, recipient) {
+	async transact(amount, token, recipient, meta) {
 
-		// Attempt transaction
+		// Perform transaction
+		await this.nation.ledger
+			.storeTransaction(this.identity, recipient, token, amount, meta)
+			.catch(this.fail(`Transacting ${amount}${token.symbol} to ${recipient.label}`))
+
+		// Return the entity
+		return this
 		
+	}
+
+
+	@assert("Account", "Authenticated")
+	async faucet(amount, token, meta) {
+
+		// Ensure tokens exist to transfer
+		await token.mint(amount)
+
+		// Transfer tokens
+		await this.nation.ledger
+			.storeTransaction(
+				this.nation.founder.identity,
+				this,
+				token,
+				amount,
+				meta || { for: "faucet" }
+			)
+			.catch(this.fail(`Requesting ${amount}${token.symbol} from faucet.`))
+	
+		// Return the entity
+		return this
 
 	}
+
 	
 }
 

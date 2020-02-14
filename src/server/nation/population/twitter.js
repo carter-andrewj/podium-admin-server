@@ -57,7 +57,10 @@ export default class Twitter {
 
 		// Fetch data
 		let { error, data } = await new Promise(
-			resolve => this.api.get(route, params).then(resolve)
+			resolve => this.api
+				.get(route, params)
+				.then(resolve)
+				.catch(err => resolve({ error: err }))
 		)
 
 		// Throw errors
@@ -85,6 +88,7 @@ export default class Twitter {
 			"statuses/user_timeline",
 			{
 				screen_name: userID,
+				tweet_mode: "extended",
 				count
 			}
 		)

@@ -39,6 +39,7 @@ let live = false
 
 // CATCH ERRORS ON EXIT
 function fail(error) {
+	console.log(`ROOT ERROR => ${error.message}`)
 	console.error(error)
 	process.exit("done")
 }

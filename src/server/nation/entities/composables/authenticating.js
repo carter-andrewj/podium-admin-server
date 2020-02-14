@@ -37,6 +37,9 @@ export default Child => class Entity extends Child {
 		// Disconnect Keystore on master disconnect
 		this.beforeDisconnect(this.signOut)
 
+		// Register exceptions
+		this.registerException(7, "Authentication", "KeyPair not found")
+
 	}
 
 
@@ -87,6 +90,9 @@ export default Child => class Entity extends Child {
 				this.identity = this.nation.ledger.identityForNew()
 				this.account = this.identity.account
 
+				// Read from account
+				await this.read()
+
 				// Set authenticated flag
 				this.authenticated = true
 
@@ -120,9 +126,7 @@ export default Child => class Entity extends Child {
 					.catch(this.fail("Reading from KeyStore", alias))
 
 				// Ensure keystore exists
-				if (this.keyStore.empty) {
-					throw new Error("KeyPair not found")
-				}
+				if (this.keyStore.empty) throw this.exception[7]()
 
 				// Pass keypair to authenticator
 				return this.authenticate
@@ -165,6 +169,9 @@ export default Child => class Entity extends Child {
 				this.identity = this.nation.ledger
 					.identityForKeyPair(keyPair)
 				this.account = this.identity.account
+
+				// Connect user account
+				await this.read()
 
 				// Set authenticated flag
 				this.authenticated = true

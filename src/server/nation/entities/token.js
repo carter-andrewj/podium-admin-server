@@ -32,6 +32,10 @@ export default class Token extends Entity(Merged) {
 			.set("Issue", this.issue)
 			.set("Mint", this.mint)
 
+		// Register Exceptions
+		this.registerException(22, "token", entity => `Entity '${entity.label}' cannot issue tokens (requires the 'economic' trait).`)
+		this.registerException(23, "token", () => `Token '${this.symbol}' is already defined`)
+
 	}
 
 
@@ -55,6 +59,17 @@ export default class Token extends Entity(Merged) {
 	@assert("Populated")
 	get icon() {
 		return this.get("designation", "icon")
+	}
+
+	@assert("Populated")
+	get startingVolume() {
+		return this.get("citizenStartingVolume")
+	}
+
+	@assert("Connected")
+	get reward() {
+		let { min, max, curve } = this.get("rewards")
+		return Math.round(Math.pow(Math.random(), curve) * (max - min)) + min
 	}
 
 	@assert("Connected")
@@ -158,9 +173,7 @@ export default class Token extends Entity(Merged) {
 	async issue(designation, volume, config) {
 
 		// Ensure token is being issued by an Economic entity
-		if (!this.parent.is("Economic")) {
-			throw new Error("Token Error: only Economic Entities can issue Tokens")
-		}
+		if (!this.parent.is("Economic")) throw this.exception[22]()
 
 		// Log
 		this.log(`Creating ${volume}${designation.symbol}`, 4)
@@ -178,9 +191,7 @@ export default class Token extends Entity(Merged) {
 			.catch(this.fail("Reading Token", designation))
 
 		// Ensure token is not already defined
-		if (!this.empty) {
-			throw new Error(`Token '${this.symbol}' is already defined`)
-		}
+		if (!this.empty) throw this.exception[23]()
 
 		// Create token
 		await Promise
@@ -210,9 +221,7 @@ export default class Token extends Entity(Merged) {
 	async mint(amount) {
 
 		// Ensure token is being issued by an Economic entity
-		if (!this.parent.economic) {
-			throw new Error("Token Error: only Economic Entities can mint Tokens")
-		}
+		if (!this.parent.is("economic")) throw this.exception[22](this.parent)
 
 		// Log
 		this.log(`Minting ${amount}${this.symbol} `, 4)

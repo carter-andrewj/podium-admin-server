@@ -32,6 +32,12 @@ export default Child => class Entity extends Child {
 		// Set composition vars
 		this.traits = this.traits.add("Indexed")
 
+		// Register exceptions
+		this.registerException(13, "index", address => `${address} not found`)
+		this.registerException(14, "index", entity => `Cannot relate '${entity.name}' entity to index of ${this.contents}`)
+		this.registerException(15, "index", entity => `Entity '${entity.label}' already in index. Cannot add.`)
+		this.registerException(16, "index", entity => `Entity '${entity.label}' not found in index. Cannot delete.`)
+
 	}
 
 
@@ -50,6 +56,11 @@ export default Child => class Entity extends Child {
 
 	get state() {
 		return OrderedSet(this.index.keys())
+	}
+
+	@assert("Connected")
+	get meta() {
+		return this.index.valueSeq().toJS()
 	}
 
 
@@ -76,14 +87,14 @@ export default Child => class Entity extends Child {
 	retreive(address) {
 
 		// Ensure entity is known
-		if (!this.has(address)) {
-			throw new Error(`INDEX ERROR: Entity ${address} not found`)
-		}
+		if (!this.has(address)) throw this.exception[13](address)
 
 		// Create and return Entity
 		return new this.contents(this.parent).fromAddress(address)
 
 	}
+
+	
 
 
 
@@ -94,7 +105,7 @@ export default Child => class Entity extends Child {
 		this.index = this.timeline.reduce(
 			(last, next) => {
 				if (!next.exclude) {
-					return last.set(next.address, next.support || {})
+					return last.set(next.address, next.meta || {})
 				} else {
 					return last.delete(next.address)
 				}
@@ -108,7 +119,7 @@ export default Child => class Entity extends Child {
 			if (data.exclude) {
 				this.index = this.index.delete(data.address)
 			} else {
-				this.index = this.index.set(data.address, data.support || {})
+				this.index = this.index.set(data.address, data.meta || {})
 			}
 		} else {
 			this.reindex()
@@ -130,7 +141,7 @@ export default Child => class Entity extends Child {
 			data => { return {
 				...data,
 				eventData: data.eventData.address,
-				support: data.eventData.support || {}
+				meta: data.eventData.meta || {}
 			}}
 		)
 	}
@@ -140,50 +151,44 @@ export default Child => class Entity extends Child {
 // WRITE
 
 	@assert("Connected")
-	add(entity, support) {
+	add(entity, meta, master = this.master) {
 
 		// Ensure entity is of the indexed type
-		if (!entity.name === this.contents) {
-			throw new Error(`INDEX ERROR: Attempted to add '${entity.name}' ` +
-							`Entity to index of '${this.contents}'`)
-		}
+		if (!entity.name === this.contents) throw this.exception[14](entity)
 
 		// Ensure entity does not already exist in index
-		if (this.has(entity.address)) {
-			throw new Error(`INDEX ERROR: Cannot add Entity '${entity.label}' ` +
-							`- already in Index.`)
-		}
-
+		if (this.has(entity.address)) throw this.exception[15](entity)
+			
 		// Write entity
-		return this.write({
-			support,
-			address: entity.address,
-			exclude: false
-		})
+		return this.write(
+			{
+				meta,
+				address: entity.address,
+				exclude: false
+			},
+			master
+		)
 
 	}
 
 
 	@assert("Connected")
-	delete(entity) {
+	delete(entity, master = this.master) {
 
 		// Ensure entity is of the indexed type
-		if (!entity.name === this.contents) {
-			throw new Error(`Index Error: Attempted to delete '${entity.name}' ` +
-							`Entity from index of '${this.contents}'`)
-		}
+		if (!entity.name === this.contents) throw this.exception[14](entity)
 
 		// Ensure entity exists in index
-		if (!this.has(entity.address)) {
-			throw new Error(`Index Error: Cannot delete Entity '${entity.label}' ` +
-							`- not found in Index`)
-		}
+		if (!this.has(entity.address)) throw this.exception[15](entity)
 
 		// Write entity
-		return this.write({
-			address: entity.address,
-			exclude: true
-		})
+		return this.write(
+			{
+				address: entity.address,
+				exclude: true
+			},
+			master
+		)
 
 	}
 

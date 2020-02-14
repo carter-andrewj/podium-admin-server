@@ -23,4 +23,9 @@ export default class Alias extends Entity(
 
 	}
 
+
+	get seed() {
+		return `alias-${this.id}`
+	}
+
 }

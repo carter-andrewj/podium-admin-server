@@ -29,6 +29,9 @@ export default Child => class Entity extends Child {
 		this.actions = this.actions
 			.set("Register", this.register)
 
+		// Register Exceptions
+		this.registerException(19, "storable", "Already Registered")
+
 	}
 
 
@@ -84,9 +87,7 @@ export default Child => class Entity extends Child {
 			.catch(this.fail("Reading Registration of Storable"))
 
 		// Ensure account is empty
-		if (!this.empty) {
-			throw new Error("STORABLE ERROR: Already Registered")
-		}
+		if (!this.empty) throw this.exception[19]()
 
 		// Log
 		this.log(`Generated Storable Account: ${this.label}`, 4)
@@ -120,9 +121,8 @@ export default Child => class Entity extends Child {
 		// 'already registered' errors 
 		await this.register(file, type)
 			.catch(error => {
-				if (error.message !== "STORABLE ERROR: Already Registered") {
-					throw error
-				}
+				if (error.code !== 19) throw error
+				return this
 			})
 
 		// Return storable

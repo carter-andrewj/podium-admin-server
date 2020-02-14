@@ -20,4 +20,47 @@ export default class Topic extends Entity(
 		Merged,			// Topic record is a key-value map
 	) {
 
+
+
+	constructor(...args) {
+
+		// Call parent constructor
+		super(...args)
+
+		// Account
+		this.name = "Topic"
+
+		// State
+		this.markup = "#"
+
+	}
+
+
+// GETTERS
+
+	get id() {
+		return this.record.get("id", "[BLANK]")
+	}
+
+
+
+// READ
+
+	get seed() {
+		return `topic-${this.id}`
+	}
+
+
+
+// CREATE
+
+	async create(id) {
+
+		// Attempt to claim topic
+		await this.claim(id)
+
+	}
+
+
+
 }

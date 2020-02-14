@@ -244,8 +244,25 @@ export default class Session {
 		// Manage alerts
 		await this.initialize()
 
-		// Follow founder
-		await this.user.follow(this.nation.founder)
+		// Get initial token volumes
+		let [ pod, aud ] = await Promise.all([
+			this.nation.domain.getToken("POD").read(),
+			this.nation.domain.getToken("AUD").read(),
+		])
+
+		// Take initial account actions
+		await Promise.all([
+
+			// Follow founder
+			this.user.follow(this.nation.founder),
+
+			// Request initial POD funds
+			this.user.faucet(pod.startingVolume, pod, { for: "welcome" }),
+
+			// Request initial AUD funds
+			this.user.faucet(aud.startingVolume, aud, { for: "welcome" }),
+
+		])
 
 		// Return keyPair, auth token, and address
 		return this.user.access
@@ -383,7 +400,12 @@ export default class Session {
 		this.log(`Checking existence of '${term}' among ${JSON.stringify(among)}`)
 
 		// Return results
-		return this.nation.database.find(term, among)
+		let results = this.nation.database.find(term, among)
+		if (results.length > 0) {
+			return results[0]
+		} else {
+			return false
+		}
 
 	}
 

@@ -53,6 +53,9 @@ export default class Actor {
 		this.active = false
 
 		// Methods
+		this.log = this.log.bind(this)
+		this.error = this.error.bind(this)
+
 		this.configure = this.configure.bind(this)
 
 		this.create = this.create.bind(this)
@@ -79,6 +82,9 @@ export default class Actor {
 		this.population.log(`ACTOR:${this.label} => ${line}`, line + 1)
 	}
 
+	error(error, context="") {
+		this.population.error(error, `ACTOR:${this.label} ${context}`)
+	}
 
 
 
@@ -88,13 +94,15 @@ export default class Actor {
 		return this.user.address
 	}
 
+	get name() {
+		return this.config.alias || this.config.mirror
+	}
+
 	get label() {
 		return this.user ?
 				this.user.label
 			: this.config ?
-				this.config.alias ?
-					`@${this.config.alias}` :
-					`@${this.config.mirror}`
+				`@${this.name}`
 			: "[unknown]"
 	}
 
@@ -150,7 +158,9 @@ export default class Actor {
 		if (this.config.mirror) {
 
 			// Fetch subject's twitter profile
-			let profile = await this.population.twitter.profileOf(this.config.mirror)
+			let profile = await this.population.twitter
+				.profileOf(this.config.mirror)
+				.catch(this.error)
 
 			// Ingest twitter profile
 			this.config.alias = profile.screen_name
@@ -207,6 +217,9 @@ export default class Actor {
 		this.user = await new User(this.nation)
 			.create(this.config.alias, this.passphrase)
 
+		// Change user role to bot
+		await this.user.become("bot")
+
 		// Log
 		this.log("Updating Profile")
 
@@ -248,9 +261,12 @@ export default class Actor {
 		if (this.user && this.user.authenticated) return this
 
 		// Sign in user
-		this.user = await new User(this.nation)
+		let user = await new User(this.nation)
 			.authenticate
 			.withEncryptedKeyPair(this.keyPair, this.passphrase)
+
+		// Check if user is already cached
+		this.user = await this.nation.unique(user)
 
 		// Return actor
 		return this
@@ -390,18 +406,38 @@ export default class Actor {
 	async mirror(params) {
 
 		// Listen to post stream
-		let data = await this.population.twitter.tweetsOf(this.config.alias)
+		let data = await this.population.twitter
+			.tweetsOf(this.config.alias)
+			.catch(this.error)
 
-		// Filter posts made before 'last' timestamp and post
+		// Ignore if no data received
+		if (!data || data.length === 0) return params
+
+		// Filter retweets and posts made before 'last' timestamp
 		if (!params.last) params.last = 0
-		let tweets = data.filter(t => new Date(t.created_at).getTime() > params.last)
+		let allTweets = data
+			.filter(t => new Date(t.created_at).getTime() > params.last)
+
+		// Ignore if no new tweets found
+		if (!allTweets || allTweets.length === 0) return params
+
+		// Filter out retweets
+		let tweets = allTweets.filter(t => !t.retweeted_status)
+
+		// Ignore if no non-retweets found
+		if (!tweets || tweets.length === 0) return params
 
 		// Post all
 		let url = this.nation.constants.regex.url
 		await Promise.all(tweets.map(tweet => {
 
+			// console.log("user", this.user.label)
+			// console.log("params", params)
+			// console.log("tweet", tweet)
+			// console.log("entities", tweet.entities.urls)
+
 			// Strip out short form links and replace with long form
-			let links = tweet.text.match(url) || []
+			let links = tweet.full_text.match(url) || []
 			let longLinks = links
 				.map(link => {
 					let linkSet = tweet.entities.urls
@@ -413,10 +449,16 @@ export default class Actor {
 				.filter(x => x)
 
 			// Reconstruct text
-			let text = List(tweet.text.split(url))
+			let text = List(tweet.full_text.split(url))
 				.interleave(longLinks)
 				.toJS()
 				.join("")
+
+			// console.log("links", links)
+			// console.log("long", longLinks)
+			// console.log("text", text)
+			// console.log("split", tweet.full_text.split(url))
+			// console.log("\n\n.\n\n")
 
 			// Compose post
 			return this.user.compose({ text: text }, "POD")
@@ -460,7 +502,7 @@ export default class Actor {
 	async save() {
 
 		// Save the actor's current status
-		await this.store.write(this.status, this.config.alias)
+		await this.store.write(this.status, this.name)
 
 		// Set loaded flag
 		// (since the actor is now in-sync with the store)
@@ -478,7 +520,7 @@ export default class Actor {
 		if (this.loaded) return this
 
 		// Load backup
-		let backup = await this.store.read(this.config.alias)
+		let backup = await this.store.read(this.name)
 
 		// Return if no data received (i.e. actor does not exist)
 		if (!backup) return this

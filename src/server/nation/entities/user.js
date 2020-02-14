@@ -1,4 +1,4 @@
-import { Map } from 'immutable';
+import { Map, List } from 'immutable';
 
 import Authenticating from './composables/authenticating';
 import Alertable from './composables/alertable';
@@ -60,13 +60,18 @@ export default class User extends Entity(
 		this.withAlias = this.withAlias.bind(this)
 
 		this.create = this.create.bind(this)
+		this.become = this.become.bind(this)
 
 		// Actions
 		this.actions = this.actions
 			.set("Create", this.create)
+			.set("Become", this.become)
 
 		// Attributes
 		this.attribute("Alias", this.withAlias)
+
+		// Register Exceptions
+		this.registerException(24, "user", role => `Unknown User Role: '${role}'`)
 
 	}
 
@@ -87,6 +92,9 @@ export default class User extends Entity(
 		return this.attributes.getIn(["Alias", "entity"])
 	}
 
+	get role() {
+		return this.record.get("role")
+	}
 
 
 
@@ -139,7 +147,10 @@ export default class User extends Entity(
 		this.log(`Creating New User: @${alias}`, 2)
 
 		// Set user record
-		this.record = Map({ alias })
+		this.record = Map({
+			alias,
+			role: "citizen"
+		})
 
 		// Generate new user identity
 		await this.authenticate
@@ -153,9 +164,7 @@ export default class User extends Entity(
 		// (Read will automatically connect to the Ownable
 		// account corresponding to the user's chosen alias.
 		// If it is available, that account will be empty.)
-		if (!this.alias.empty) {
-			throw new Error(`Alias '${this.alias.label}' is not Available`)
-		}		
+		if (!this.alias.empty) throw this.alias.exception[17]()
 
 		// Cache this user
 		this.nation.cache(this)
@@ -190,6 +199,32 @@ export default class User extends Entity(
 		this.log(`Created New User: ${this.label}`, 2)
 
 		// Return user
+		return this
+
+	}
+
+
+	@assert("Complete")
+	async become(role) {
+
+		// Reject unknown roles
+		if (!List(["citizen", "bot"]).includes(role))
+			throw this.exception[24](role)
+
+		// Log
+		this.log(`Becoming: ${role}`, 1)
+
+		// Set role
+		this.record.set("role", role)
+
+		// Write record
+		await this.write({ role: role })
+			.catch(this.fail(`Becoming Role: ${role}`))
+
+		// Log
+		this.log(`Assumed role: ${role}`, 2)
+
+		// Return entity
 		return this
 
 	}
