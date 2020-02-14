@@ -63,7 +63,7 @@ Changes to a nation template (in the `templates` folder) require a hard stop (`C
 The server can be started in Production Mode by running:
 
    ```shell
-   npm start production
+   npm start-production
    ```
 
 Currently, the differences between Development and Production mode are limited to those optimisations offered by the various node package dependencies.
@@ -134,7 +134,7 @@ A basic in-memory database (currently [Loki](http://techfort.github.io/LokiJS/ "
 An S3 store for files (images, videos) associated with (or uploaded to) the **Nation**.
 
 
-###Ledger
+### Ledger
 
 A decentralized ledger (DLT; currently [Radix](https://www.radixdlt.com/ "Radix DLT")) for storing all Nation specific data - users, posts, tokens, reports, etc... - everything that will form part of the smart contract infrastructure of the full Podium network.
 
@@ -163,15 +163,15 @@ Every type of Entity is then comprised of that base class and a number of mixins
 
 And they form the following types:
 
-- **Alias** *Ownable, Merged* A tradeable asset representing an @ ID.
-- **Domain** *Economic, Merged, Posting, Profiled* A namespace within the Nation (represented by the // markup - e.g. //Podium). Domain have their own Tokens, Laws, and Subdomains (//Podium/Subdomain) which inherit the settings of their parents. In practice, the Nation itself is a root Domain holding the global Laws and Tokens.
-- **KeyStore** *(no traits)* An encrypted on-ledger store for a private key, encrypted with the user's password and stored in an account derived from a seed of that password and the user's Alias. (A temporary solution to password recovery).
-- **Media** *Storable* An entity representing a media file (image, gif, video) uploaded to Podium whose ledger address is calculated from the hash of the file itself (meaning each unique piece of media is only represented once).
-- **Post** *Reactable, Respondable, Merged* A single piece of content on Podium.
-- **Profile** *Merged* A set of data describing the associated Entity.
-- **Topic** *Ownable, Posting, Followable, Profiled, Merged* A tradeable asset representing a #Tag. Allows its owner to post on its behalf.
-- **Token** *Merged* A representation of a single Podium currency (i.e. ***POD*** or ***AUD***).
-- **User** *Alertable, Authenticating, Followable, Following, Merged, Owning, Posting, Profiled, Reactive, Transacting* Users are the digital identity of Podium members (the User Entity may be renamed Citizen in future to avoid ambiguity).
+- **ALIAS** *(Ownable, Merged)* A tradeable asset representing an @ ID.
+- **DOMAIN** *(Economic, Merged, Posting, Profiled)* A namespace within the Nation (represented by the // markup - e.g. //Podium). Domain have their own Tokens, Laws, and Subdomains (//Podium/Subdomain) which inherit the settings of their parents. In practice, the Nation itself is a root Domain holding the global Laws and Tokens.
+- **KEYSTORE** *(no traits)* An encrypted on-ledger store for a private key, encrypted with the user's password and stored in an account derived from a seed of that password and the user's Alias. (A temporary solution to password recovery).
+- **MEDIA** *(Storable)* An entity representing a media file (image, gif, video) uploaded to Podium whose ledger address is calculated from the hash of the file itself (meaning each unique piece of media is only represented once).
+- **POST** *(Reactable, Respondable, Merged)* A single piece of content on Podium.
+- **PROFILE** *(Merged)* A set of data describing the associated Entity.
+- **TOPIC** *(Ownable, Posting, Followable, Profiled, Merged)* A tradeable asset representing a #Tag. Allows its owner to post on its behalf.
+- **TOKEN** *(Merged)* A representation of a single Podium currency (i.e. ***POD*** or ***AUD***).
+- **USER** *(Alertable, Authenticating, Followable, Following, Merged, Owning, Posting, Profiled, Reactive, Transacting)* Users are the digital identity of Podium members (the User Entity may be renamed Citizen in future to avoid ambiguity).
 
 *Note: the various Index Entity types are self-explanatory and so not detailed here.*
 
